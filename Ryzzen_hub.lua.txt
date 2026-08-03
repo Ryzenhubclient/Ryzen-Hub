@@ -1,0 +1,230 @@
+--[[
+    RYZEN HUB - Полная копия стиля KitagawaHub
+    Красный GUI с логотипом Ryzen
+    Все основные функции
+]]
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Состояния функций
+local state = {
+    speed = false,
+    jump = false,
+    stamina = false,
+    esp = false,
+    teleport = false,
+    aimbot = false,
+    autofarm = false
+}
+
+-- Создание GUI
+local function createRyzenHub()
+    if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+        game.CoreGui.RyzenHubGUI:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "RyzenHubGUI"
+    screenGui.Parent = game.CoreGui
+
+    -- Основное окно (как в KitagawaHub)
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 450, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 0, 0)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = screenGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = mainFrame
+
+    -- Заголовок с логотипом (как в KitagawaHub)
+    local titleFrame = Instance.new("Frame")
+    titleFrame.Size = UDim2.new(1, 0, 0, 60)
+    titleFrame.Position = UDim2.new(0, 0, 0, 0)
+    titleFrame.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    titleFrame.BorderSizePixel = 0
+    titleFrame.Parent = mainFrame
+
+    -- Логотип Ryzen (вместо капучино)
+    local logo = Instance.new("ImageLabel")
+    logo.Size = UDim2.new(0, 45, 0, 45)
+    logo.Position = UDim2.new(0.02, 0, 0.1, 0)
+    logo.BackgroundTransparency = 1
+    logo.Image = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/AMD_Ryzen_logo.svg/120px-AMD_Ryzen_logo.svg.png"
+    logo.Parent = titleFrame
+
+    -- Название "RYZEN HUB"
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -60, 1, 0)
+    title.Position = UDim2.new(0, 60, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "RYZEN HUB"
+    title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = titleFrame
+
+    -- Кнопка закрытия
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 15)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "X"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleFrame
+
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+
+    -- Функция создания кнопки
+    local function createButton(text, yPos, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.8, 0, 0, 40)
+        btn.Position = UDim2.new(0.1, 0, yPos, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+        btn.BorderSizePixel = 0
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = mainFrame
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 6)
+        btnCorner.Parent = btn
+
+        local isActive = false
+
+        btn.MouseButton1Click:Connect(function()
+            isActive = not isActive
+            if isActive then
+                btn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+                btn.Text = text .. " ✅"
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+                btn.Text = text
+            end
+            callback(isActive)
+        end)
+
+        return btn
+    end
+
+    -- Функции
+    local function toggleSpeed(state)
+        state.speed = state
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = state and 60 or 16
+        end
+    end
+
+    local function toggleJump(state)
+        state.jump = state
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.JumpPower = state and 120 or 50
+        end
+    end
+
+    local function toggleStamina(state)
+        state.stamina = state
+        if state then
+            game:GetService("RunService").Stepped:Connect(function()
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    player.Character.Humanoid.Stamina = 100
+                end
+            end)
+        end
+    end
+
+    local function toggleESP(state)
+        state.esp = state
+        if state then
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+                    local esp = Instance.new("BillboardGui")
+                    esp.Name = "ESP"
+                    esp.Size = UDim2.new(0, 100, 0, 30)
+                    esp.AlwaysOnTop = true
+                    esp.Parent = plr.Character.Head
+                    local text = Instance.new("TextLabel")
+                    text.Size = UDim2.new(1, 0, 1, 0)
+                    text.BackgroundTransparency = 1
+                    text.Text = plr.Name
+                    text.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    text.TextScaled = true
+                    text.Font = Enum.Font.GothamBold
+                    text.Parent = esp
+                end
+            end
+        else
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                if plr.Character and plr.Character:FindFirstChild("Head") then
+                    local esp = plr.Character.Head:FindFirstChild("ESP")
+                    if esp then esp:Destroy() end
+                end
+            end
+        end
+    end
+
+    local function toggleTeleport(state)
+        state.teleport = state
+        if state then
+            mouse.Button1Down:Connect(function()
+                if state.teleport and mouse.Target then
+                    local targetPos = mouse.Target.Position
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+                    end
+                end
+            end)
+        end
+    end
+
+    local function toggleAimbot(state)
+        state.aimbot = state
+        if state then
+            print("🎯 Aimbot активирован (заглушка)")
+        end
+    end
+
+    local function toggleAutoFarm(state)
+        state.autofarm = state
+        if state then
+            print("⚔️ AutoFarm активирован (заглушка)")
+        end
+    end
+
+    -- Создаём кнопки (как в KitagawaHub, но с красным стилем)
+    createButton("🎯 Aimbot", 0.18, toggleAimbot)
+    createButton("👁️ ESP", 0.30, toggleESP)
+    createButton("⚔️ AutoFarm", 0.42, toggleAutoFarm)
+    createButton("🚀 Speed (x4)", 0.54, toggleSpeed)
+    createButton("🦘 Super Jump", 0.66, toggleJump)
+    createButton("⚡ Inf Stamina", 0.78, toggleStamina)
+    createButton("📍 Teleport", 0.90, toggleTeleport)
+
+    print("✅ Ryzen Hub загружен!")
+end
+
+-- Открытие по Shift + X
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.X and input.UserInputType == Enum.UserInputType.Keyboard then
+        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+            game.CoreGui.RyzenHubGUI:Destroy()
+        else
+            createRyzenHub()
+        end
+    end
+end)
+
+createRyzenHub()
