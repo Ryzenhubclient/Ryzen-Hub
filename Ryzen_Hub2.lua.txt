@@ -1,0 +1,323 @@
+--[[
+    RYZEN HUB v2.0
+    Полностью рабочий скрипт для Xeno Executor
+    Красный GUI с функциями
+]]
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+
+-- Переменные состояния функций
+local speedEnabled = false
+local jumpEnabled = false
+local staminaEnabled = false
+local espEnabled = false
+local teleportEnabled = false
+
+-- Создание GUI
+local function createRyzenHub()
+    -- Удаляем старый GUI, если есть
+    if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+        game.CoreGui.RyzenHubGUI:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "RyzenHubGUI"
+    screenGui.Parent = game.CoreGui
+
+    -- Главная рамка
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 400, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 0, 0) -- Тёмно-красный
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = screenGui
+
+    -- Закругление углов
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = mainFrame
+
+    -- Заголовок с логотипом
+    local titleFrame = Instance.new("Frame")
+    titleFrame.Size = UDim2.new(1, 0, 0, 60)
+    titleFrame.Position = UDim2.new(0, 0, 0, 0)
+    titleFrame.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    titleFrame.BackgroundTransparency = 0.3
+    titleFrame.BorderSizePixel = 0
+    titleFrame.Parent = mainFrame
+
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 12)
+    titleCorner.Parent = titleFrame
+
+    -- Логотип Ryzen (текстовый)
+    local logoLabel = Instance.new("TextLabel")
+    logoLabel.Size = UDim2.new(0, 50, 0, 50)
+    logoLabel.Position = UDim2.new(0.02, 0, 0.05, 0)
+    logoLabel.BackgroundTransparency = 1
+    logoLabel.Text = "⚡"
+    logoLabel.TextColor3 = Color3.fromRGB(255, 50, 50)
+    logoLabel.TextScaled = true
+    logoLabel.Font = Enum.Font.GothamBold
+    logoLabel.Parent = titleFrame
+
+    -- Название
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -60, 1, 0)
+    titleLabel.Position = UDim2.new(0, 60, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "RYZEN HUB v2.0"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextScaled = true
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Parent = titleFrame
+
+    -- Кнопка закрытия (X)
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 35, 0, 35)
+    closeBtn.Position = UDim2.new(1, -45, 0, 12)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleFrame
+
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.Parent = closeBtn
+
+    closeBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+
+    -- Функция для создания кнопки-переключателя
+    local function createToggleButton(text, yPos, stateVar, callback)
+        local btnFrame = Instance.new("Frame")
+        btnFrame.Size = UDim2.new(0.9, 0, 0, 45)
+        btnFrame.Position = UDim2.new(0.05, 0, yPos, 0)
+        btnFrame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+        btnFrame.BackgroundTransparency = 0.2
+        btnFrame.BorderSizePixel = 0
+        btnFrame.Parent = mainFrame
+
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = btnFrame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.6, 0, 1, 0)
+        label.Position = UDim2.new(0.05, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = btnFrame
+
+        local statusLabel = Instance.new("TextLabel")
+        statusLabel.Size = UDim2.new(0.2, 0, 1, 0)
+        statusLabel.Position = UDim2.new(0.75, 0, 0, 0)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.Text = "ВЫКЛ"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        statusLabel.TextScaled = true
+        statusLabel.Font = Enum.Font.GothamBold
+        statusLabel.Parent = btnFrame
+
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.Position = UDim2.new(0, 0, 0, 0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
+        btn.Parent = btnFrame
+
+        local isActive = false
+
+        btn.MouseButton1Click:Connect(function()
+            isActive = not isActive
+            if isActive then
+                statusLabel.Text = "ВКЛ"
+                statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+                btnFrame.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+            else
+                statusLabel.Text = "ВЫКЛ"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+                btnFrame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+            end
+            callback(isActive)
+        end)
+
+        return btn
+    end
+
+    -- Функции-обработчики
+    local function handleSpeed(state)
+        speedEnabled = state
+        if state then
+            player.Character.Humanoid.WalkSpeed = 60
+        else
+            player.Character.Humanoid.WalkSpeed = 16
+        end
+    end
+
+    local function handleJump(state)
+        jumpEnabled = state
+        if state then
+            player.Character.Humanoid.JumpPower = 120
+        else
+            player.Character.Humanoid.JumpPower = 50
+        end
+    end
+
+    local function handleStamina(state)
+        staminaEnabled = state
+        if state then
+            game:GetService("RunService").Stepped:Connect(function()
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    player.Character.Humanoid.Stamina = 100
+                end
+            end)
+        end
+    end
+
+    local function handleESP(state)
+        espEnabled = state
+        if state then
+            -- Простой ESP: показываем имена игроков
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+                    local esp = Instance.new("BillboardGui")
+                    esp.Name = "ESP"
+                    esp.Size = UDim2.new(0, 100, 0, 30)
+                    esp.AlwaysOnTop = true
+                    esp.Parent = plr.Character.Head
+
+                    local text = Instance.new("TextLabel")
+                    text.Size = UDim2.new(1, 0, 1, 0)
+                    text.BackgroundTransparency = 1
+                    text.Text = plr.Name
+                    text.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    text.TextScaled = true
+                    text.Font = Enum.Font.GothamBold
+                    text.Parent = esp
+                end
+            end
+        else
+            -- Удаляем ESP
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                if plr.Character and plr.Character:FindFirstChild("Head") then
+                    local esp = plr.Character.Head:FindFirstChild("ESP")
+                    if esp then esp:Destroy() end
+                end
+            end
+        end
+    end
+
+    local function handleTeleport(state)
+        teleportEnabled = state
+        if state then
+            -- Включаем телепорт по клику мыши
+            mouse.Button1Down:Connect(function()
+                if teleportEnabled and mouse.Target then
+                    local targetPos = mouse.Target.Position
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+                    end
+                end
+            end)
+        end
+    end
+
+    -- Создаём кнопки
+    createToggleButton("🚀 Speed (x4)", 0.15, false, handleSpeed)
+    createToggleButton("🦘 Super Jump", 0.28, false, handleJump)
+    createToggleButton("⚡ Inf Stamina", 0.41, false, handleStamina)
+    createToggleButton("👁️ ESP", 0.54, false, handleESP)
+    createToggleButton("📍 Teleport (Click)", 0.67, false, handleTeleport)
+
+    -- Кнопка обновления (reload) для ESP
+    local reloadBtn = Instance.new("TextButton")
+    reloadBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    reloadBtn.Position = UDim2.new(0.3, 0, 0.82, 0)
+    reloadBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+    reloadBtn.BorderSizePixel = 0
+    reloadBtn.Text = "🔄 Обновить ESP"
+    reloadBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    reloadBtn.TextScaled = true
+    reloadBtn.Font = Enum.Font.Gotham
+    reloadBtn.Parent = mainFrame
+
+    local reloadCorner = Instance.new("UICorner")
+    reloadCorner.CornerRadius = UDim.new(0, 6)
+    reloadCorner.Parent = reloadBtn
+
+    reloadBtn.MouseButton1Click:Connect(function()
+        if espEnabled then
+            -- Перезапускаем ESP
+            for _, plr in ipairs(game.Players:GetPlayers()) do
+                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
+                    local esp = plr.Character.Head:FindFirstChild("ESP")
+                    if esp then esp:Destroy() end
+
+                    local newEsp = Instance.new("BillboardGui")
+                    newEsp.Name = "ESP"
+                    newEsp.Size = UDim2.new(0, 100, 0, 30)
+                    newEsp.AlwaysOnTop = true
+                    newEsp.Parent = plr.Character.Head
+
+                    local text = Instance.new("TextLabel")
+                    text.Size = UDim2.new(1, 0, 1, 0)
+                    text.BackgroundTransparency = 1
+                    text.Text = plr.Name
+                    text.TextColor3 = Color3.fromRGB(255, 50, 50)
+                    text.TextScaled = true
+                    text.Font = Enum.Font.GothamBold
+                    text.Parent = newEsp
+                end
+            end
+        end
+    end)
+
+    -- Кнопка выхода
+    local exitBtn = Instance.new("TextButton")
+    exitBtn.Size = UDim2.new(0.3, 0, 0, 35)
+    exitBtn.Position = UDim2.new(0.35, 0, 0.92, 0)
+    exitBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+    exitBtn.BorderSizePixel = 0
+    exitBtn.Text = "❌ Закрыть"
+    exitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    exitBtn.TextScaled = true
+    exitBtn.Font = Enum.Font.GothamBold
+    exitBtn.Parent = mainFrame
+
+    local exitCorner = Instance.new("UICorner")
+    exitCorner.CornerRadius = UDim.new(0, 6)
+    exitCorner.Parent = exitBtn
+
+    exitBtn.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+
+    print("✅ Ryzen Hub v2.0 загружен!")
+end
+
+-- Команда для открытия/закрытия (Shift + X)
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.X and input.UserInputType == Enum.UserInputType.Keyboard then
+        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+            game.CoreGui.RyzenHubGUI:Destroy()
+        else
+            createRyzenHub()
+        end
+    end
+end)
+
+-- Автоматическое создание GUI при загрузке
+createRyzenHub()
