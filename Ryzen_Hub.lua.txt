@@ -1,0 +1,94 @@
+-- RYZEN HUB
+-- Версия 1.0
+-- Полный скрипт для Xeno Executor
+
+print("🟢 Ryzen Hub загружается...")
+
+local player = game.Players.LocalPlayer
+
+local function createRyzenHub()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "RyzenHub"
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+    
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 500, 0, 400)
+    mainFrame.Position = UDim2.new(0.5, -250, 0.5, -200)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 50)
+    title.BackgroundTransparency = 1
+    title.Text = "🔥 RYZEN HUB 🔥"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = mainFrame
+    
+    local logo = Instance.new("TextLabel")
+    logo.Size = UDim2.new(0, 60, 0, 60)
+    logo.Position = UDim2.new(0.02, 0, 0.02, 0)
+    logo.BackgroundTransparency = 1
+    logo.Text = "⚡"
+    logo.TextColor3 = Color3.fromRGB(255, 215, 0)
+    logo.TextScaled = true
+    logo.Font = Enum.Font.GothamBold
+    logo.Parent = mainFrame
+    
+    local ryzenText = Instance.new("TextLabel")
+    ryzenText.Size = UDim2.new(0, 70, 0, 20)
+    ryzenText.Position = UDim2.new(0.02, 0, 0.12, 0)
+    ryzenText.BackgroundTransparency = 1
+    ryzenText.Text = "RYZEN"
+    ryzenText.TextColor3 = Color3.fromRGB(255, 50, 50)
+    ryzenText.TextScaled = true
+    ryzenText.Font = Enum.Font.GothamBold
+    ryzenText.Parent = mainFrame
+    
+    local buttons = {
+        {text = "🎯 Aimbot", y = 0.2},
+        {text = "👁️ ESP", y = 0.35},
+        {text = "⚔️ AutoFarm", y = 0.5},
+        {text = "🚀 Speed", y = 0.65},
+    }
+    
+    for _, btnData in ipairs(buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.8, 0, 0, 40)
+        btn.Position = UDim2.new(0.1, 0, btnData.y, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+        btn.Text = btnData.text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.Parent = mainFrame
+        
+        btn.MouseButton1Click:Connect(function()
+            print("🟢 " .. btnData.text .. " активирован (заглушка)")
+        end)
+    end
+    
+    local btnClose = Instance.new("TextButton")
+    btnClose.Size = UDim2.new(0, 30, 0, 30)
+    btnClose.Position = UDim2.new(1, -40, 0, 5)
+    btnClose.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    btnClose.Text = "X"
+    btnClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btnClose.Font = Enum.Font.GothamBold
+    btnClose.Parent = mainFrame
+    
+    btnClose.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+    
+    print("✅ Ryzen Hub загружен!")
+end
+
+pcall(createRyzenHub)
+
+if not player.PlayerGui:FindFirstChild("RyzenHub") then
+    wait(1)
+    createRyzenHub()
+end
