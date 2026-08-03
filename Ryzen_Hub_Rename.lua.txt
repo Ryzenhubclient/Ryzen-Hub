@@ -1,0 +1,71 @@
+-- Загружаем оригинальный скрипт KitagawaHub
+local kitagawaScript = loadstring(game:HttpGet("https://raw.githubusercontent.com/Terfiscript1/KitagawaHub/refs/heads/main/kitagawahub"))
+
+if type(kitagawaScript) == "function" then
+    -- Запускаем оригинальный скрипт
+    local success, err = pcall(kitagawaScript)
+    if not success then
+        warn("Ошибка при загрузке KitagawaHub: ", err)
+        return
+    end
+
+    -- Даём время на создание GUI
+    task.wait(1)
+
+    -- Функция для переименования
+    local function renameToRyzenHub(obj)
+        -- Меняем название самого объекта
+        if obj.Name and obj.Name:lower():find("kitagawa") or obj.Name:lower():find("hub") or obj.Name:lower():find("menu") then
+            obj.Name = "RyzenHub"
+        end
+
+        -- Меняем текст на всех текстовых элементах
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Text and (obj.Text:lower():find("kitagawa") or obj.Text:lower():find("hub") or obj.Text:lower():find("menu") or obj.Text:lower():find("kita")) then
+                obj.Text = "Ryzen Hub"
+            end
+        end
+
+        -- Рекурсивно проходим по всем дочерним элементам
+        for _, child in ipairs(obj:GetChildren()) do
+            renameToRyzenHub(child)
+        end
+    end
+
+    -- Ищем все GUI и переименовываем
+    local renamed = false
+    for _, gui in ipairs(game.CoreGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            -- Переименовываем сам ScreenGui
+            if gui.Name:lower():find("kitagawa") or gui.Name:lower():find("hub") then
+                gui.Name = "RyzenHubGUI"
+                renamed = true
+            end
+
+            -- Переименовываем всё внутри
+            renameToRyzenHub(gui)
+            renamed = true
+        end
+    end
+
+    -- Если не нашли GUI, пробуем найти в PlayerGui
+    if not renamed then
+        for _, gui in ipairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                if gui.Name:lower():find("kitagawa") or gui.Name:lower():find("hub") then
+                    gui.Name = "RyzenHubGUI"
+                end
+                renameToRyzenHub(gui)
+                renamed = true
+            end
+        end
+    end
+
+    if renamed then
+        print("✅ ГУИ переименован в 'Ryzen Hub'")
+    else
+        print("⚠️ ГУИ не найден. Возможно, он создаётся с задержкой.")
+    end
+else
+    warn("Не удалось загрузить KitagawaHub.")
+end
