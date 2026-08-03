@@ -1,0 +1,45 @@
+-- Загружаем оригинальный скрипт KitagawaHub
+local kitagawaScript = loadstring(game:HttpGet("https://raw.githubusercontent.com/Terfiscript1/KitagawaHub/refs/heads/main/kitagawahub"))
+
+-- Если скрипт загрузился как функция, запускаем его с "перехватом"
+if type(kitagawaScript) == "function" then
+    -- Перехватываем функцию создания GUI
+    local originalCreate = kitagawaScript
+
+    -- Создаём обёртку, которая изменит название после создания GUI
+    local function wrapper()
+        -- Запускаем оригинальный скрипт
+        local success, err = pcall(originalCreate)
+        if not success then
+            warn("Ошибка при загрузке KitagawaHub: ", err)
+            return
+        end
+
+        -- Даём скрипту время на создание GUI
+        task.wait(0.5)
+
+        -- Ищем все ScreenGui и меняем название
+        for _, gui in ipairs(game.CoreGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                -- Проверяем, есть ли внутри фрейм с названием "KitagawaHub" или похожий
+                for _, child in ipairs(gui:GetDescendants()) do
+                    if child:IsA("Frame") or child:IsA("TextLabel") then
+                        if child.Name:lower():find("kitagawa") or child.Name:lower():find("hub") then
+                            -- Меняем текст на "Ryzen Hub"
+                            if child:IsA("TextLabel") or child:IsA("TextButton") then
+                                child.Text = "Ryzen Hub"
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        print("✅ Название GUI изменено на 'Ryzen Hub'")
+    end
+
+    -- Запускаем обёртку
+    wrapper()
+else
+    warn("Не удалось загрузить KitagawaHub. Проверьте ссылку.")
+end
