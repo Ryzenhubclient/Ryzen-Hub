@@ -1,4 +1,4 @@
--- RYZEN HUB - РАБОЧИЙ
+-- RYZEN HUB - ПРАВЫЙ SHIFT
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -245,12 +245,12 @@ end
 -- ===== КНОПКИ НА ЭКРАНЕ =====
 local function createButtons()
     if buttonGui then buttonGui:Destroy() end
-    
+
     buttonGui = Instance.new("ScreenGui")
     buttonGui.Name = "RyzenButtons"
     buttonGui.Parent = game.CoreGui
     buttonGui.ResetOnSpawn = false
-    
+
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 200, 0, 380)
     frame.Position = UDim2.new(0.5, -100, 0.5, -190)
@@ -260,7 +260,7 @@ local function createButtons()
     frame.Active = true
     frame.Draggable = true
     frame.Parent = buttonGui
-    
+
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 30)
     title.BackgroundTransparency = 1
@@ -269,7 +269,7 @@ local function createButtons()
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = frame
-    
+
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 25, 0, 25)
     closeBtn.Position = UDim2.new(1, -30, 0, 2)
@@ -283,7 +283,7 @@ local function createButtons()
     closeBtn.MouseButton1Click:Connect(function()
         if buttonGui then buttonGui:Destroy() end
     end)
-    
+
     local function createBtn(text, yPos, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0.85, 0, 0, 30)
@@ -295,7 +295,7 @@ local function createButtons()
         btn.TextScaled = true
         btn.Font = Enum.Font.Gotham
         btn.Parent = frame
-        
+
         local isActive = false
         btn.MouseButton1Click:Connect(function()
             isActive = not isActive
@@ -311,7 +311,7 @@ local function createButtons()
         end)
         return btn
     end
-    
+
     createBtn("👁️ ESP", 0.12, function(s) toggles.esp = s updateESP() end)
     createBtn("🎯 Trigger Bot", 0.22, toggleTriggerBot)
     createBtn("🐇 Bunny Hop", 0.32, toggleBunnyHop)
@@ -319,7 +319,7 @@ local function createButtons()
     createBtn("🌀 Noclip", 0.52, toggleNoclip)
     createBtn("📍 Teleport", 0.62, toggleTeleport)
     createBtn("✈️ Fly", 0.72, toggleFly)
-    
+
     local killBtn = Instance.new("TextButton")
     killBtn.Size = UDim2.new(0.85, 0, 0, 30)
     killBtn.Position = UDim2.new(0.075, 0, 0.82, 0)
@@ -333,9 +333,9 @@ local function createButtons()
     killBtn.MouseButton1Click:Connect(killMurderer)
 end
 
--- ===== ОТКРЫТИЕ ПО КОЛЕСИКУ =====
+-- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
 game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseWheel then
+    if input.KeyCode == Enum.KeyCode.RightShift then
         if buttonGui and buttonGui.Parent then
             buttonGui:Destroy()
             buttonGui = nil
@@ -345,4 +345,4 @@ game:GetService("UserInputService").InputBegan:Connect(function(input)
     end
 end)
 
-print("✅ Ryzen Hub загружен! Нажмите колесико мыши для открытия кнопок.")
+print("✅ Ryzen Hub загружен! Нажмите ПРАВЫЙ SHIFT для открытия кнопок.")
