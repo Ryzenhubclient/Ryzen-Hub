@@ -1,4 +1,4 @@
--- RYZEN HUB - MM2 ПОЛНАЯ ВЕРСИЯ С ДРОЧКОЙ
+-- RYZEN HUB - MM2 ПОЛНАЯ ВЕРСИЯ
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -31,7 +31,7 @@ local toggles = {
     headless = false,
     customClouds = false,
     customWeather = false,
-    masturbate = false, -- Дрочка
+    masturbate = false,
 }
 
 local playerListGui = nil
@@ -43,40 +43,32 @@ local bombPart = nil
 local fakeNameLabel = nil
 local clouds = {}
 
--- Подключения
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
 local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
 local masturbateConnection = nil
 
--- ===== ДРОЧКА (МАСТУРБАЦИЯ) =====
+-- ===== ДРОЧКА =====
 local function toggleMasturbate(state)
     toggles.masturbate = state
     if state then
         print("🍆 Режим дрочки включён!")
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            local animTrack = player.Character.Humanoid:LoadAnimation(Instance.new("Animation"))
-            -- Создаём анимацию движения руки
-            masturbateConnection = game:GetService("RunService").RenderStepped:Connect(function()
-                if not toggles.masturbate then
-                    if masturbateConnection then masturbateConnection:Disconnect() end
-                    return
-                end
-                if player.Character and player.Character:FindFirstChild("Right Arm") then
-                    local arm = player.Character["Right Arm"]
-                    local time = tick()
-                    -- Движение руки вверх-вниз (дрочка)
-                    local offset = math.sin(time * 8) * 0.3
-                    arm.CFrame = arm.CFrame * CFrame.new(0, offset, 0)
-                end
-            end)
-        end
+        masturbateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            if not toggles.masturbate then
+                if masturbateConnection then masturbateConnection:Disconnect() end
+                return
+            end
+            if player.Character and player.Character:FindFirstChild("Right Arm") then
+                local arm = player.Character["Right Arm"]
+                local offset = math.sin(tick() * 8) * 0.3
+                arm.CFrame = arm.CFrame * CFrame.new(0, offset, 0)
+            end
+        end)
     else
         print("🍆 Режим дрочки выключен.")
         if masturbateConnection then
             masturbateConnection:Disconnect()
             masturbateConnection = nil
         end
-        -- Возвращаем руку в нормальное положение
         if player.Character and player.Character:FindFirstChild("Right Arm") then
             player.Character["Right Arm"].CFrame = player.Character["Right Arm"].CFrame * CFrame.new(0, 0, 0)
         end
@@ -91,7 +83,6 @@ local function toggleFakeRoblox(state)
             local gui = Instance.new("ScreenGui")
             gui.Name = "FakeRobloxGUI"
             gui.Parent = game.CoreGui
-            
             fakeNameLabel = Instance.new("TextLabel")
             fakeNameLabel.Size = UDim2.new(0, 200, 0, 30)
             fakeNameLabel.Position = UDim2.new(0, 10, 0, 10)
@@ -185,7 +176,7 @@ local function toggleCustomWeather(state)
         elseif settings.weatherType == "Night" then
             lighting.ClockTime = 0
             lighting.Brightness = 0.2
-        else -- Sunny
+        else
             lighting.ClockTime = 14
             lighting.Brightness = 1
             lighting.FogEnd = 1000
@@ -199,76 +190,6 @@ local function toggleCustomWeather(state)
         game:GetService("Workspace").Terrain.WaterWaveSize = 0
         game:GetService("Workspace").Terrain.WaterWaveSpeed = 0
     end
-end
-
--- ===== МИНИ-МЕНЮ ИГРОКОВ =====
-local function togglePlayerList()
-    if playerListGui then
-        playerListGui:Destroy()
-        playerListGui = nil
-        return
-    end
-
-    playerListGui = Instance.new("ScreenGui")
-    playerListGui.Name = "PlayerList"
-    playerListGui.Parent = game.CoreGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 300)
-    frame.Position = UDim2.new(0.7, 0, 0.3, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.Parent = playerListGui
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundTransparency = 1
-    title.Text = "ИГРОКИ"
-    title.TextColor3 = Color3.fromRGB(255, 70, 70)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = frame
-
-    local list = Instance.new("ScrollingFrame")
-    list.Size = UDim2.new(1, 0, 1, -30)
-    list.Position = UDim2.new(0, 0, 0, 30)
-    list.BackgroundTransparency = 1
-    list.Parent = frame
-
-    local function updateList()
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-
-        local yPos = 0
-        for _, plr in ipairs(game.Players:GetPlayers()) do
-            if plr ~= player then
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(1, 0, 0, 30)
-                btn.Position = UDim2.new(0, 0, 0, yPos)
-                btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-                btn.BorderSizePixel = 0
-                btn.Text = plr.Name
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                btn.TextScaled = true
-                btn.Font = Enum.Font.Gotham
-                btn.Parent = list
-
-                btn.MouseButton1Click:Connect(function()
-                    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        plr.Character.HumanoidRootPart.CFrame = CFrame.new(0, -500, 0)
-                        print("🚀 Игрок " .. plr.Name .. " выкинут за карту!")
-                    end
-                end)
-                yPos = yPos + 30
-            end
-        end
-    end
-
-    updateList()
-    game.Players.PlayerAdded:Connect(updateList)
-    game.Players.PlayerRemoving:Connect(updateList)
 end
 
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
@@ -313,7 +234,7 @@ local function updateESP()
         if role == "Sheriff" and toggles.showSheriff then show = true end
         if role == "Innocent" and toggles.showInnocent then show = true end
         if not show then continue end
-        
+
         local color = role == "Murderer" and Color3.fromRGB(255, 0, 0) or 
                      role == "Sheriff" and Color3.fromRGB(0, 100, 255) or 
                      Color3.fromRGB(0, 255, 0)
@@ -347,7 +268,7 @@ local function updateESP()
     end
 end
 
--- ===== TRIGGER BOT (100% УБИВАЕТ МАРДЕРА) =====
+-- ===== TRIGGER BOT =====
 local function toggleTriggerBot(state)
     toggles.triggerbot = state
     if state then
@@ -505,10 +426,10 @@ local function plantBomb()
         print("⚠️ Бомба уже установлена!")
         return
     end
-    
+
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
+
     bombPart = Instance.new("Part")
     bombPart.Name = "Bomb_MM2"
     bombPart.Size = Vector3.new(2, 1, 2)
@@ -518,17 +439,17 @@ local function plantBomb()
     bombPart.Anchored = true
     bombPart.CanCollide = false
     bombPart.Parent = workspace
-    
+
     local glow = Instance.new("PointLight")
     glow.Color = Color3.fromRGB(255, 215, 0)
     glow.Range = 10
     glow.Brightness = 5
     glow.Parent = bombPart
-    
+
     bombActive = true
     bombTimer = 5
     print("💣 Бомба установлена! Взрыв через 5 секунд! 🔥")
-    
+
     spawn(function()
         while bombActive and bombTimer > 0 do
             wait(1)
@@ -547,7 +468,7 @@ local function plantBomb()
             explosion.BlastRadius = 25
             explosion.BlastDamage = 100
             explosion.Parent = workspace
-            
+
             for i = 1, 20 do
                 local spark = Instance.new("Part")
                 spark.Size = Vector3.new(0.5, 0.5, 0.5)
@@ -564,7 +485,7 @@ local function plantBomb()
                 end)
                 game:GetService("Debris"):AddItem(spark, 2)
             end
-            
+
             bombPart:Destroy()
             bombPart = nil
             bombActive = false
@@ -578,19 +499,19 @@ local function defuseBomb()
         print("❌ Нет активной бомбы!")
         return
     end
-    
+
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
+
     local dist = (bombPart.Position - character.HumanoidRootPart.Position).Magnitude
     if dist > 10 then
         print("❌ Вы слишком далеко от бомбы!")
         return
     end
-    
+
     print("🔧 Обезвреживание бомбы...")
     wait(2)
-    
+
     if bombActive and bombPart then
         bombPart:Destroy()
         bombPart = nil
@@ -598,24 +519,6 @@ local function defuseBomb()
         print("✅ Бомба обезврежена!")
     end
 end
-
--- Обработчики клавиш
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.G then
-        if toggles.bombMode then
-            if bombActive then
-                defuseBomb()
-            else
-                plantBomb()
-            end
-        end
-    end
-    if input.KeyCode == Enum.KeyCode.H then
-        if toggles.shotMurderer then
-            killMurderer()
-        end
-    end
-end)
 
 -- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
 local function toggleJump(state)
@@ -825,4 +728,88 @@ local function createRyzenHub()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -50, 1, 0)
     title.Position = UDim2.new(0, 50, 0, 0)
-    title.BackgroundTransparency =
+    title.BackgroundTransparency = 1
+    title.Text = "RYZEN HUB"
+    title.TextColor3 = Color3.fromRGB(255, 80, 80)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = titleFrame
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -36, 0, 8)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleFrame
+    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+
+    local function createButton(text, yPos, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.85, 0, 0, 30)
+        btn.Position = UDim2.new(0.075, 0, yPos, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+        btn.BorderSizePixel = 0
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = mainFrame
+
+        local isActive = false
+        btn.MouseButton1Click:Connect(function()
+            isActive = not isActive
+            if isActive then
+                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
+                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
+            callback(isActive)
+            if text:find("ESP") then updateESP() end
+        end)
+        return btn
+    end
+
+    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0.85, 0, 0, 30)
+        frame.Position = UDim2.new(0.075, 0, yPos, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        frame.BorderSizePixel = 0
+        frame.Parent = mainFrame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.4, 0, 1, 0)
+        label.Position = UDim2.new(0.02, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.Parent = frame
+
+        local slider = Instance.new("TextButton")
+        slider.Size = UDim2.new(0.4, 0, 0.6, 0)
+        slider.Position = UDim2.new(0.45, 0, 0.2, 0)
+        slider.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+        slider.BorderSizePixel = 0
+        slider.Text = tostring(defaultVal)
+        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
+        slider.TextScaled = true
+        slider.Font = Enum.Font.Gotham
+        slider.Parent = frame
+
+        local value = defaultVal
+        slider.MouseButton1Click:Connect(function()
+            local newVal = value + 10
+            if newVal > maxVal then newVal = minVal end
+            value = newVal
+            slider.Text = tostring(value)
+            callback(value)
+        end)
+       
