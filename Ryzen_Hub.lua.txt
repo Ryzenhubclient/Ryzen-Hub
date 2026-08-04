@@ -1,4 +1,4 @@
--- RYZEN HUB [FULL + AIMBOT + ESP] - MM2
+-- RYZEN HUB - ПОЛНАЯ ВЕРСИЯ (КВАДРАТНОЕ МЕНЮ + НАСТРОЙКИ)
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -8,13 +8,11 @@ local settings = {
     flyspeed = 50,
     jumppower = 120,
     spinSpeed = 10,
-    autoPickupGun = false,
-    aimbotEnabled = false,
-    aimbotSmoothness = 5,
     aimbotFov = 150,
     espColor = Color3.fromRGB(255, 0, 0),
     espTransparency = 0.5,
-    espMode = "Роли", -- Роли / Имена / Все
+    espMode = "Роли",
+    autoPickupGun = false,
 }
 
 local toggles = {
@@ -32,6 +30,7 @@ local toggles = {
     spinBot = false,
     fling = false,
     shotMurderer = false,
+    aimbot = false,
 }
 
 local espObjects = {}
@@ -67,7 +66,7 @@ local function getPlayerRole(plr)
     return "Innocent"
 end
 
--- ===== ESP (ОБНОВЛЁННЫЙ) =====
+-- ===== ESP =====
 local function updateESP()
     for _, obj in ipairs(espObjects) do
         pcall(function() obj:Destroy() end)
@@ -122,7 +121,7 @@ local function updateESP()
         highlight.Name = "ESP_Highlight"
         highlight.Adornee = plr.Character
         highlight.FillColor = color
-        highlight.FillTransparency = settings.espTransparency or 0.5
+        highlight.FillTransparency = settings.espTransparency
         highlight.OutlineColor = color
         highlight.OutlineTransparency = 0.2
         highlight.Parent = plr.Character
@@ -132,16 +131,16 @@ end
 
 -- ===== AIMBOT =====
 local function toggleAimbot(state)
-    settings.aimbotEnabled = state
+    toggles.aimbot = state
     if state then
         if aimbotConnection then aimbotConnection:Disconnect() end
         aimbotConnection = game:GetService("RunService").Heartbeat:Connect(function()
-            if not settings.aimbotEnabled then 
+            if not toggles.aimbot then 
                 if aimbotConnection then aimbotConnection:Disconnect() end
                 return 
             end
             if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-            
+
             local target, targetDist = nil, math.huge
             for _, plr in ipairs(game.Players:GetPlayers()) do
                 if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
@@ -152,7 +151,7 @@ local function toggleAimbot(state)
                     end
                 end
             end
-            
+
             if target then
                 local aimPart = target.Character.Head
                 player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, aimPart.Position)
@@ -160,19 +159,20 @@ local function toggleAimbot(state)
         end)
     else
         if aimbotConnection then aimbotConnection:Disconnect() end
+        if fovCircle then fovCircle:Destroy() fovCircle = nil end
     end
 end
 
 -- ===== FOV КРУГ =====
 local function updateFOV()
     if fovCircle then fovCircle:Destroy() end
-    if not settings.aimbotEnabled then return end
+    if not toggles.aimbot then return end
     
     fovCircle = Instance.new("Frame")
     fovCircle.Size = UDim2.new(0, settings.aimbotFov * 2, 0, settings.aimbotFov * 2)
     fovCircle.Position = UDim2.new(0.5, -settings.aimbotFov, 0.5, -settings.aimbotFov)
     fovCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    fovCircle.BackgroundTransparency = 0.8
+    fovCircle.BackgroundTransparency = 0.85
     fovCircle.BorderSizePixel = 1
     fovCircle.BorderColor3 = Color3.fromRGB(255, 0, 0)
     fovCircle.Active = false
@@ -198,7 +198,6 @@ local function toggleTriggerBot(state)
                     if getPlayerRole(plr) == "Murderer" then
                         pcall(function()
                             plr.Character.Humanoid.Health = 0
-                            print("🔫 Мардер убит (Trigger Bot)")
                         end)
                     end
                 end
@@ -212,26 +211,20 @@ end
 -- ===== SHOT MURDERER =====
 local function toggleShotMurderer(state)
     toggles.shotMurderer = state
-    print(state and "🔫 Режим убийства мардера включён!" or "🔫 Режим убийства мардера выключен.")
 end
 
 local function killMurderer()
-    if not toggles.shotMurderer then 
-        print("❌ Режим убийства мардера выключен!")
-        return 
-    end
+    if not toggles.shotMurderer then return end
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
             if getPlayerRole(plr) == "Murderer" then
                 pcall(function()
                     plr.Character.Humanoid.Health = 0
-                    print("🔫 Мардер убит!")
                 end)
                 return
             end
         end
     end
-    print("❌ Мардер не найден!")
 end
 
 -- ===== SPEED GLITCH =====
@@ -293,515 +286,4 @@ local function toggleFling(state)
             end
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                 for _, plr in ipairs(game.Players:GetPlayers()) do
-                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < 10 then
-                            pcall(function()
-                                plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, 1000, 0)
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
-    else
-        if flingConnection then flingConnection:Disconnect() end
-    end
-end
-
--- ===== АВТО-ПОДБОР ПИСТОЛЕТА =====
-local function autoPickupGun()
-    if not settings.autoPickupGun then return end
-    task.wait(1)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local root = player.Character.HumanoidRootPart
-    for _, item in ipairs(workspace:GetDescendants()) do
-        if item:IsA("Tool") then
-            local name = item.Name:lower()
-            if name:find("gun") or name:find("pistol") or name:find("revolver") then
-                if item.Parent ~= player.Character and item.Parent ~= player.Backpack then
-                    local dist = (item.Position - root.Position).Magnitude
-                    if dist < 100 then
-                        pcall(function()
-                            root.CFrame = CFrame.new(item.Position + Vector3.new(0, 2, 0))
-                            task.wait(0.2)
-                            item.Parent = player.Character
-                            print("🔫 Пистолет автоматически подобран!")
-                        end)
-                        return
-                    end
-                end
-            end
-        end
-    end
-end
-
-player.CharacterAdded:Connect(autoPickupGun)
-
--- ===== ЗАБРАТЬ ПИСТОЛЕТ ПО G =====
-local function pickupGunFromMap()
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
-        print("❌ Вы не в игре!")
-        return 
-    end
-    local root = player.Character.HumanoidRootPart
-    for _, item in ipairs(workspace:GetDescendants()) do
-        if item:IsA("Tool") then
-            local name = item.Name:lower()
-            if name:find("gun") or name:find("pistol") or name:find("revolver") then
-                if item.Parent ~= player.Character and item.Parent ~= player.Backpack then
-                    local dist = (item.Position - root.Position).Magnitude
-                    if dist < 100 then
-                        pcall(function()
-                            root.CFrame = CFrame.new(item.Position + Vector3.new(0, 2, 0))
-                            task.wait(0.2)
-                            item.Parent = player.Character
-                            print("🔫 Пистолет подобран с карты!")
-                        end)
-                        return
-                    end
-                end
-            end
-        end
-    end
-    print("❌ Пистолет не найден на карте!")
-end
-
--- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
-local function toggleJump(state)
-    toggles.jump = state
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = state and settings.jumppower or 50
-    end
-end
-
-local function enableNoclip()
-    if noclipConnection then noclipConnection:Disconnect() end
-    noclipActive = true
-    noclipStartTime = tick()
-    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-        if not noclipActive then return end
-        if tick() - noclipStartTime >= 86400 then
-            noclipActive = false
-            if noclipConnection then noclipConnection:Disconnect() end
-            print("⏰ Noclip отключён")
-            return
-        end
-        if player.Character then
-            for _, part in ipairs(player.Character:GetChildren()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end
-    end)
-end
-
-local function disableNoclip()
-    noclipActive = false
-    if noclipConnection then noclipConnection:Disconnect() end
-    if player.Character then
-        for _, part in ipairs(player.Character:GetChildren()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
-end
-
-local function toggleNoclip(state)
-    if state then enableNoclip() else disableNoclip() end
-    toggles.noclip = state
-end
-
-local function toggleTeleport(state)
-    toggles.teleport = state
-    if state then
-        mouse.Button1Down:Connect(function()
-            if toggles.teleport and mouse.Target then
-                local targetPos = mouse.Target.Position
-                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-                end
-            end
-        end)
-    end
-end
-
-local function toggleFly(state)
-    toggles.fly = state
-    if state then
-        if flyConnection then flyConnection:Disconnect() end
-        flyConnection = game:GetService("RunService").Stepped:Connect(function()
-            if not toggles.fly then 
-                if flyConnection then flyConnection:Disconnect() end
-                return 
-            end
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local root = player.Character.HumanoidRootPart
-                local moveDir = Vector3.new(0, 0, 0)
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + root.CFrame.LookVector end
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - root.CFrame.LookVector end
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - root.CFrame.RightVector end
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + root.CFrame.RightVector end
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-                root.Velocity = moveDir * settings.flyspeed
-            end
-        end)
-    else
-        if flyConnection then flyConnection:Disconnect() end
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.PlatformStand = false
-        end
-    end
-end
-
-local function toggleFps(state)
-    toggles.showFps = state
-    if state then
-        if fpsLabel then fpsLabel:Destroy() end
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "FPSDisplay"
-        screenGui.Parent = game.CoreGui
-        fpsLabel = Instance.new("TextLabel")
-        fpsLabel.Size = UDim2.new(0, 100, 0, 30)
-        fpsLabel.Position = UDim2.new(0, 10, 0, 10)
-        fpsLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        fpsLabel.BackgroundTransparency = 0.3
-        fpsLabel.BorderSizePixel = 0
-        fpsLabel.Text = "FPS: 0"
-        fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        fpsLabel.TextScaled = true
-        fpsLabel.Font = Enum.Font.GothamBold
-        fpsLabel.Parent = screenGui
-        local frames = 0
-        local lastTime = tick()
-        game:GetService("RunService").Heartbeat:Connect(function()
-            frames = frames + 1
-            if tick() - lastTime >= 1 then
-                if fpsLabel then fpsLabel.Text = "FPS: " .. frames end
-                frames = 0
-                lastTime = tick()
-            end
-        end)
-    else
-        if fpsLabel then fpsLabel:Destroy() end
-    end
-end
-
--- ===== ПОЛУЧЕНИЕ ИНФОРМАЦИИ ОБ ИГРЕ =====
-local function getGameInfo()
-    local timerText = "⏱️ Игра начнётся через: ..."
-    local playersList = {}
-    
-    for _, obj in ipairs(game.CoreGui:GetDescendants()) do
-        if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-            local text = obj.Text or ""
-            if text:match("Игра начнется через") or text:match("Game starts in") then
-                timerText = text
-                break
-            end
-        end
-    end
-    
-    for _, plr in ipairs(game.Players:GetPlayers()) do
-        local score = 0
-        if plr.leaderstats and plr.leaderstats:FindFirstChild("Coins") then
-            score = plr.leaderstats.Coins.Value
-        elseif plr.leaderstats and plr.leaderstats:FindFirstChild("Kills") then
-            score = plr.leaderstats.Kills.Value
-        end
-        table.insert(playersList, {Name = plr.Name, Score = score})
-    end
-    
-    return timerText, playersList
-end
-
--- ===== ОБНОВЛЕНИЕ ТАЙМЕРА И СПИСКА =====
-local function updateTimerAndPlayers()
-    if not gui then return end
-    
-    local timerText, playersList = getGameInfo()
-    
-    if timerLabel then
-        timerLabel.Text = timerText
-    end
-    
-    if playerListFrame then
-        for _, child in ipairs(playerListFrame:GetChildren()) do
-            if child:IsA("TextButton") then
-                child:Destroy()
-            end
-        end
-        
-        local yPos = 0
-        for _, data in ipairs(playersList) do
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 0, 25)
-            btn.Position = UDim2.new(0, 0, 0, yPos)
-            btn.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-            btn.BorderSizePixel = 0
-            btn.Text = data.Name .. "  X " .. data.Score
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            btn.TextScaled = true
-            btn.Font = Enum.Font.Gotham
-            btn.Parent = playerListFrame
-            
-            local target = game.Players:FindFirstChild(data.Name)
-            if target and target ~= player then
-                btn.MouseButton1Click:Connect(function()
-                    if target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                        target.Character.HumanoidRootPart.CFrame = CFrame.new(0, -500, 0)
-                        print("🚀 " .. target.Name .. " выкинут за карту!")
-                    end
-                end)
-            end
-            
-            yPos = yPos + 25
-        end
-        
-        playerListFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
-    end
-end
-
--- ===== ГЛАВНОЕ МЕНЮ (PULSE STYLE) =====
-local function createRyzenHub()
-    if gui then gui:Destroy() end
-
-    gui = Instance.new("ScreenGui")
-    gui.Name = "RyzenHubGUI"
-    gui.Parent = game.CoreGui
-    gui.ResetOnSpawn = false
-
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 550, 0, 650)
-    mainFrame.Position = UDim2.new(0.5, -275, 0.5, -325)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(10, 0, 10)
-    mainFrame.BackgroundTransparency = 0.1
-    mainFrame.BorderSizePixel = 3
-    mainFrame.BorderColor3 = Color3.fromRGB(200, 0, 255)
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = gui
-
-    -- Пульсирующая рамка
-    spawn(function()
-        while gui and gui.Parent do
-            local colors = {Color3.fromRGB(200,0,255), Color3.fromRGB(255,0,200), Color3.fromRGB(200,0,255)}
-            for _, col in ipairs(colors) do
-                if mainFrame then
-                    mainFrame.BorderColor3 = col
-                end
-                task.wait(0.5)
-            end
-        end
-    end)
-
-    -- Заголовок
-    local titleFrame = Instance.new("Frame")
-    titleFrame.Size = UDim2.new(1, 0, 0, 50)
-    titleFrame.BackgroundColor3 = Color3.fromRGB(30, 0, 30)
-    titleFrame.BorderSizePixel = 2
-    titleFrame.BorderColor3 = Color3.fromRGB(255, 0, 200)
-    titleFrame.Parent = mainFrame
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 1, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "✦ RYZEN HUB ✦"
-    title.TextColor3 = Color3.fromRGB(255, 0, 200)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = titleFrame
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -38, 0, 10)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 80)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = titleFrame
-    closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
-
-    -- ТАЙМЕР
-    local timerFrame = Instance.new("Frame")
-    timerFrame.Size = UDim2.new(0.9, 0, 0, 40)
-    timerFrame.Position = UDim2.new(0.05, 0, 0.09, 0)
-    timerFrame.BackgroundColor3 = Color3.fromRGB(40, 0, 40)
-    timerFrame.BorderSizePixel = 1
-    timerFrame.BorderColor3 = Color3.fromRGB(200, 0, 255)
-    timerFrame.Parent = mainFrame
-
-    timerLabel = Instance.new("TextLabel")
-    timerLabel.Size = UDim2.new(1, 0, 1, 0)
-    timerLabel.BackgroundTransparency = 1
-    timerLabel.Text = "⏱️ Игра начнётся через: ..."
-    timerLabel.TextColor3 = Color3.fromRGB(255, 200, 255)
-    timerLabel.TextScaled = true
-    timerLabel.Font = Enum.Font.GothamBold
-    timerLabel.Parent = timerFrame
-
-    -- СПИСОК ИГРОКОВ
-    local playersFrame = Instance.new("Frame")
-    playersFrame.Size = UDim2.new(0.9, 0, 0, 0.3)
-    playersFrame.Position = UDim2.new(0.05, 0, 0.17, 0)
-    playersFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 20)
-    playersFrame.BorderSizePixel = 1
-    playersFrame.BorderColor3 = Color3.fromRGB(200, 0, 255)
-    playersFrame.Parent = mainFrame
-
-    local playersLabel = Instance.new("TextLabel")
-    playersLabel.Size = UDim2.new(1, 0, 0, 25)
-    playersLabel.BackgroundTransparency = 1
-    playersLabel.Text = "👥 ИГРОКИ"
-    playersLabel.TextColor3 = Color3.fromRGB(200, 100, 255)
-    playersLabel.TextScaled = true
-    playersLabel.Font = Enum.Font.GothamBold
-    playersLabel.Parent = playersFrame
-
-    playerListFrame = Instance.new("ScrollingFrame")
-    playerListFrame.Size = UDim2.new(1, 0, 1, -25)
-    playerListFrame.Position = UDim2.new(0, 0, 0, 25)
-    playerListFrame.BackgroundTransparency = 1
-    playerListFrame.BorderSizePixel = 0
-    playerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    playerListFrame.ScrollBarThickness = 8
-    playerListFrame.Parent = playersFrame
-
-    -- КНОПКИ
-    local function createButton(text, yPos, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.8, 0, 0, 30)
-        btn.Position = UDim2.new(0.1, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(30, 0, 30)
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(200, 0, 255)
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextScaled = true
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = mainFrame
-
-        local isActive = false
-        btn.MouseButton1Click:Connect(function()
-            isActive = not isActive
-            if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(80, 0, 80)
-                btn.TextColor3 = Color3.fromRGB(255, 200, 255)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(30, 0, 30)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            end
-            callback(isActive)
-            if text:find("ESP") then updateESP() end
-            if text:find("Aimbot") then updateFOV() end
-        end)
-        return btn
-    end
-
-    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0.8, 0, 0, 25)
-        frame.Position = UDim2.new(0.1, 0, yPos, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(20, 0, 20)
-        frame.BorderSizePixel = 0
-        frame.Parent = mainFrame
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.4, 0, 1, 0)
-        label.Position = UDim2.new(0.02, 0, 0, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(200, 150, 255)
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-
-        local slider = Instance.new("TextButton")
-        slider.Size = UDim2.new(0.4, 0, 0.7, 0)
-        slider.Position = UDim2.new(0.45, 0, 0.15, 0)
-        slider.BackgroundColor3 = Color3.fromRGB(40, 0, 40)
-        slider.BorderSizePixel = 1
-        slider.BorderColor3 = Color3.fromRGB(200, 0, 255)
-        slider.Text = tostring(defaultVal)
-        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
-        slider.TextScaled = true
-        slider.Font = Enum.Font.Gotham
-        slider.Parent = frame
-
-        local value = defaultVal
-        slider.MouseButton1Click:Connect(function()
-            local newVal = value + 10
-            if newVal > maxVal then newVal = minVal end
-            value = newVal
-            slider.Text = tostring(value)
-            callback(value)
-        end)
-        return slider
-    end
-
-    -- КНОПКИ
-    createButton("👁️ ESP", 0.50, function(s) toggles.esp = s updateESP() end)
-    createButton("🔴 Murderer", 0.56, function(s) toggles.showMurderer = s end)
-    createButton("🟢 Sheriff", 0.62, function(s) toggles.showSheriff = s end)
-    createButton("⚪ Innocent", 0.68, function(s) toggles.showInnocent = s end)
-    createButton("🎯 Aimbot", 0.74, toggleAimbot)
-    createButton("🎯 Trigger Bot", 0.80, toggleTriggerBot)
-    createButton("⚡ Speed Glitch", 0.86, toggleSpeedGlitch)
-    createButton("🦘 Super Jump", 0.92, toggleJump)
-    createButton("🌀 Noclip", 0.98, toggleNoclip)
-    createButton("📍 Teleport", 1.04, toggleTeleport)
-    createButton("✈️ Fly", 1.10, toggleFly)
-    createButton("🔄 Spin Bot", 1.16, toggleSpinBot)
-    createButton("💥 Fling", 1.22, toggleFling)
-    createButton("🔫 Shot Murderer [H]", 1.28, toggleShotMurderer)
-    createButton("🔫 Авто-подбор", 1.34, function(s) settings.autoPickupGun = s print(s and "✅ Включён" or "❌ Выключен") end)
-    createButton("🔫 Забрать пистолет [G]", 1.40, function() pickupGunFromMap() end)
-    createButton("📊 FPS", 1.46, toggleFps)
-
-    -- СЛАЙДЕРЫ
-    createSlider("⚡ Speed Glitch", 1.52, 20, 300, settings.speedglitch, function(v) settings.speedglitch = v end)
-    createSlider("✈️ Fly Speed", 1.58, 10, 200, settings.flyspeed, function(v) settings.flyspeed = v end)
-    createSlider("🦘 Jump Power", 1.64, 50, 300, settings.jumppower, function(v) settings.jumppower = v end)
-    createSlider("🎯 Aimbot FOV", 1.70, 50, 300, settings.aimbotFov, function(v) settings.aimbotFov = v updateFOV() end)
-
-    -- Обновляем таймер и список игроков каждые 2 секунды
-    spawn(function()
-        while gui and gui.Parent do
-            updateTimerAndPlayers()
-            task.wait(2)
-        end
-    end)
-
-    print("✅ Ryzen Hub [FULL] загружен!")
-end
-
--- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        if gui and gui.Parent then
-            gui:Destroy()
-            gui = nil
-        else
-            createRyzenHub()
-        end
-    end
-end)
-
--- Обработчик клавиши H (убийство мардера)
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.H then
-        killMurderer()
-    end
-end)
-
--- Обработчик клавиши G (забрать пистолет)
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.G then
-        pickupGunFromMap()
-    end
-end)
-
-createRyzenHub()
-print("✅ RYZEN HUB [FULL] готов! Нажми ПРАВЫЙ SHIFT.")
+                    if plr ~= player and plr.Character and plr
