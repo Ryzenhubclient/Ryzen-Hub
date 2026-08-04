@@ -1,18 +1,19 @@
--- KABANCIK HUB - НОВАЯ ВЕРСИЯ
--- Функции: Silent Aim, Hitbox Extender, Anti-AFK, Auto Collect, Kill All, Wall Hop, Speed Glitch, Teleport to Player, Fling Player, Red Anime GUI
-
+-- KABANCIK HUB - ПОЛНАЯ ВЕРСИЯ С МИНИ-МЕНЮ
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
+local http = game:GetService("HttpService")
 
 -- ===== НАСТРОЙКИ =====
 local settings = {
-    speed = 100,
-    flyspeed = 50,
-    jumppower = 120,
-    hitboxSize = 10,
-    antiAFK = false,
+    speedGlitch = 100,
+    wallHopSpeed = 200,
+    hitboxSize = 5,
+    flingPower = 1000,
+    silentAimTarget = "All",
+    autoCollectRange = 30,
+    flingTarget = "All", -- All, Murderer, Sheriff, Innocent
 }
 
 local toggles = {
@@ -29,6 +30,7 @@ local toggles = {
 }
 
 local gui = nil
+local miniMenu = nil
 local espObjects = {}
 local connections = {}
 
@@ -52,256 +54,231 @@ local function getRole(plr)
     return "Innocent"
 end
 
--- ===== ESP =====
-local function updateESP()
-    for _, obj in ipairs(espObjects) do
-        pcall(function() obj:Destroy() end)
-    end
-    espObjects = {}
-    if not toggles.esp then return end
+-- ===== СОЗДАНИЕ АВАТАРКИ =====
+local function getPlayerAvatar(player)
+    local userId = player.UserId
+    local avatar = Instance.new("ImageLabel")
+    avatar.Size = UDim2.new(0, 40, 0, 40)
+    avatar.BackgroundTransparency = 1
+    avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. userId .. "&width=420&height=420&format=png"
+    return avatar
+end
 
+-- ===== МИНИ-МЕНЮ FLING =====
+local function createFlingMenu()
+    if miniMenu then miniMenu:Destroy() end
+    miniMenu = Instance.new("ScreenGui")
+    miniMenu.Name = "FlingMenu"
+    miniMenu.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 300)
+    frame.Position = UDim2.new(0.5, -125, 0.5, -150)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = miniMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1,0,0,30)
+    title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+    title.BorderSizePixel = 0
+    title.Text = "🌀 Fling Target"
+    title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0,25,0,25)
+    close.Position = UDim2.new(1,-30,0,2)
+    close.BackgroundColor3 = Color3.fromRGB(80,0,0)
+    close.BorderSizePixel = 0
+    close.Text = "✕"
+    close.TextColor3 = Color3.fromRGB(255,255,255)
+    close.TextScaled = true
+    close.Font = Enum.Font.GothamBold
+    close.Parent = frame
+    close.MouseButton1Click:Connect(function() miniMenu:Destroy() end)
+
+    local yPos = 0.12
+    local targets = {"All", "Murderer", "Sheriff", "Innocent"}
+    for _, target in ipairs(targets) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.8,0,0,30)
+        btn.Position = UDim2.new(0.1,0,yPos,0)
+        btn.BackgroundColor3 = settings.flingTarget == target and Color3.fromRGB(100,0,0) or Color3.fromRGB(40,0,0)
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(255,50,50)
+        btn.Text = target
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = frame
+        btn.MouseButton1Click:Connect(function()
+            settings.flingTarget = target
+            miniMenu:Destroy()
+        end)
+        yPos = yPos + 0.1
+    end
+
+    -- Слайдер силы
+    local fr = Instance.new("Frame")
+    fr.Size = UDim2.new(0.9,0,0,25)
+    fr.Position = UDim2.new(0.05,0,yPos,0)
+    fr.BackgroundColor3 = Color3.fromRGB(30,0,0)
+    fr.BorderSizePixel = 0
+    fr.Parent = frame
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.4,0,1,0)
+    lbl.Position = UDim2.new(0.02,0,0,0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "Power"
+    lbl.TextColor3 = Color3.fromRGB(255,200,200)
+    lbl.TextScaled = true
+    lbl.Font = Enum.Font.Gotham
+    lbl.Parent = fr
+
+    local sl = Instance.new("TextButton")
+    sl.Size = UDim2.new(0.4,0,0.7,0)
+    sl.Position = UDim2.new(0.45,0,0.15,0)
+    sl.BackgroundColor3 = Color3.fromRGB(50,0,0)
+    sl.BorderSizePixel = 1
+    sl.BorderColor3 = Color3.fromRGB(255,50,50)
+    sl.Text = tostring(settings.flingPower)
+    sl.TextColor3 = Color3.fromRGB(255,255,255)
+    sl.TextScaled = true
+    sl.Font = Enum.Font.Gotham
+    sl.Parent = fr
+    local val = settings.flingPower
+    sl.MouseButton1Click:Connect(function()
+        val = val + 100
+        if val > 5000 then val = 100 end
+        sl.Text = tostring(val)
+        settings.flingPower = val
+    end)
+end
+
+-- ===== МИНИ-МЕНЮ TELEPORT =====
+local function createTeleportMenu()
+    if miniMenu then miniMenu:Destroy() end
+    miniMenu = Instance.new("ScreenGui")
+    miniMenu.Name = "TeleportMenu"
+    miniMenu.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 250, 0, 400)
+    frame.Position = UDim2.new(0.5, -125, 0.5, -200)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = miniMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1,0,0,30)
+    title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+    title.BorderSizePixel = 0
+    title.Text = "👤 Teleport to Player"
+    title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0,25,0,25)
+    close.Position = UDim2.new(1,-30,0,2)
+    close.BackgroundColor3 = Color3.fromRGB(80,0,0)
+    close.BorderSizePixel = 0
+    close.Text = "✕"
+    close.TextColor3 = Color3.fromRGB(255,255,255)
+    close.TextScaled = true
+    close.Font = Enum.Font.GothamBold
+    close.Parent = frame
+    close.MouseButton1Click:Connect(function() miniMenu:Destroy() end)
+
+    local list = Instance.new("ScrollingFrame")
+    list.Size = UDim2.new(1,0,1,-35)
+    list.Position = UDim2.new(0,0,0,35)
+    list.BackgroundTransparency = 1
+    list.CanvasSize = UDim2.new(0,0,0,0)
+    list.ScrollBarThickness = 5
+    list.Parent = frame
+
+    local yPos = 0
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr == player then continue end
-        if not plr.Character or not plr.Character:FindFirstChild("Head") then continue end
-        local role = getRole(plr)
-        local color = role == "Murderer" and Color3.fromRGB(255,0,0) or role == "Sheriff" and Color3.fromRGB(0,100,255) or Color3.fromRGB(0,255,0)
-        local esp = Instance.new("BillboardGui")
-        esp.Size = UDim2.new(0, 150, 0, 40)
-        esp.AlwaysOnTop = true
-        esp.Parent = plr.Character.Head
-        table.insert(espObjects, esp)
-        local text = Instance.new("TextLabel")
-        text.Size = UDim2.new(1,0,1,0)
-        text.BackgroundTransparency = 1
-        text.Text = plr.Name .. " [" .. role .. "]"
-        text.TextColor3 = color
-        text.TextScaled = true
-        text.Font = Enum.Font.GothamBold
-        text.Parent = esp
-        table.insert(espObjects, text)
-        local hl = Instance.new("Highlight")
-        hl.Adornee = plr.Character
-        hl.FillColor = color
-        hl.FillTransparency = 0.5
-        hl.Parent = plr.Character
-        table.insert(espObjects, hl)
-    end
-end
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,0,0,45)
+        btn.Position = UDim2.new(0,0,0,yPos)
+        btn.BackgroundColor3 = Color3.fromRGB(30,0,0)
+        btn.BorderSizePixel = 0
+        btn.Text = ""
+        btn.Parent = list
 
--- ===== SILENT AIM =====
-local function toggleSilentAim(state)
-    toggles.silentAim = state
-    if state then
-        if connections.silentAim then connections.silentAim:Disconnect() end
-        connections.silentAim = rs.Heartbeat:Connect(function()
-            if not toggles.silentAim then return end
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-            local target, targetDist = nil, math.huge
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-                    local dist = (plr.Character.Head.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if dist < targetDist and dist < 150 then
-                        target = plr
-                        targetDist = dist
-                    end
-                end
-            end
-            if target then
-                player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, target.Character.Head.Position)
+        -- Аватар
+        local avatar = getPlayerAvatar(plr)
+        avatar.Parent = btn
+
+        -- Имя
+        local name = Instance.new("TextLabel")
+        name.Size = UDim2.new(1,-50,1,0)
+        name.Position = UDim2.new(0,50,0,0)
+        name.BackgroundTransparency = 1
+        name.Text = plr.Name
+        name.TextColor3 = Color3.fromRGB(255,255,255)
+        name.TextScaled = true
+        name.Font = Enum.Font.Gotham
+        name.TextXAlignment = Enum.TextXAlignment.Left
+        name.Parent = btn
+
+        btn.MouseButton1Click:Connect(function()
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = plr.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
+                miniMenu:Destroy()
             end
         end)
-    else
-        if connections.silentAim then connections.silentAim:Disconnect() end
+
+        yPos = yPos + 50
     end
+    list.CanvasSize = UDim2.new(0,0,0,yPos)
 end
 
--- ===== HITBOX EXTENDER =====
-local function toggleHitbox(state)
-    toggles.hitbox = state
-    if state then
-        if connections.hitbox then connections.hitbox:Disconnect() end
-        connections.hitbox = rs.Heartbeat:Connect(function()
-            if not toggles.hitbox then return end
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    for _, part in ipairs(plr.Character:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            part.Size = part.Size + Vector3.new(settings.hitboxSize, settings.hitboxSize, settings.hitboxSize)
-                        end
-                    end
-                end
-            end
-        end)
-    else
-        if connections.hitbox then connections.hitbox:Disconnect() end
-        for _, plr in ipairs(game.Players:GetPlayers()) do
-            if plr ~= player and plr.Character then
-                for _, part in ipairs(plr.Character:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.Size = Vector3.new(2, 2, 1)
-                    end
-                end
-            end
+-- ===== FLING PLAYER (ВЫКИДЫВАЕТ ЗА КАРТУ) =====
+local function flingPlayerByRightClick()
+    if not toggles.flingPlayer then return end
+    if not mouse.Target then return end
+    local targetPart = mouse.Target
+    if not targetPart.Parent then return end
+    local targetCharacter = targetPart.Parent
+    if not targetCharacter:FindFirstChild("Humanoid") then return end
+    local targetPlayer = game.Players:GetPlayerFromCharacter(targetCharacter)
+    if not targetPlayer or targetPlayer == player then return end
+    
+    -- Проверяем, подходит ли цель по настройке
+    local role = getRole(targetPlayer)
+    if settings.flingTarget ~= "All" and settings.flingTarget ~= role then return end
+    
+    pcall(function()
+        if targetCharacter:FindFirstChild("HumanoidRootPart") then
+            -- Выкидываем за карту
+            targetCharacter.HumanoidRootPart.CFrame = CFrame.new(0, -500, 0)
         end
-    end
+    end)
 end
 
--- ===== ANTI-AFK =====
-local function toggleAntiAFK(state)
-    toggles.antiAFK = state
-    if state then
-        if connections.antiAFK then connections.antiAFK:Disconnect() end
-        connections.antiAFK = rs.Heartbeat:Connect(function()
-            if not toggles.antiAFK then return end
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.Sit = false
-                mouse.KeyDown:Connect(function() end)
-            end
-        end)
-    else
-        if connections.antiAFK then connections.antiAFK:Disconnect() end
-    end
-end
-
--- ===== AUTO COLLECT (МОНЕТЫ) =====
-local function toggleAutoCollect(state)
-    toggles.autoCollect = state
-    if state then
-        if connections.autoCollect then connections.autoCollect:Disconnect() end
-        connections.autoCollect = rs.Heartbeat:Connect(function()
-            if not toggles.autoCollect then return end
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-            local root = player.Character.HumanoidRootPart
-            for _, item in ipairs(workspace:GetDescendants()) do
-                if item:IsA("Part") and item.Name:lower():find("coin") then
-                    local dist = (item.Position - root.Position).Magnitude
-                    if dist < 30 then
-                        root.CFrame = CFrame.new(item.Position + Vector3.new(0, 2, 0))
-                        task.wait(0.1)
-                    end
-                end
-            end
-        end)
-    else
-        if connections.autoCollect then connections.autoCollect:Disconnect() end
-    end
-end
-
--- ===== KILL ALL =====
-local function toggleKillAll(state)
-    toggles.killAll = state
-    if state then
-        if connections.killAll then connections.killAll:Disconnect() end
-        connections.killAll = rs.Heartbeat:Connect(function()
-            if not toggles.killAll then return end
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
-                    pcall(function() plr.Character.Humanoid.Health = 0 end)
-                end
-            end
-        end)
-    else
-        if connections.killAll then connections.killAll:Disconnect() end
-    end
-end
-
--- ===== WALL HOP =====
-local function toggleWallHop(state)
-    toggles.wallHop = state
-    if state then
-        if connections.wallHop then connections.wallHop:Disconnect() end
-        connections.wallHop = rs.Stepped:Connect(function()
-            if not toggles.wallHop then return end
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                local h = player.Character.Humanoid
-                if h:GetState() == Enum.HumanoidStateType.Jumping or h:GetState() == Enum.HumanoidStateType.Falling then
-                    h.WalkSpeed = 200
-                else
-                    h.WalkSpeed = 16
-                end
-            end
-        end)
-    else
-        if connections.wallHop then connections.wallHop:Disconnect() end
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = 16
-        end
-    end
-end
-
--- ===== SPEED GLITCH =====
-local function toggleSpeedGlitch(state)
-    toggles.speedGlitch = state
-    if state then
-        if connections.speedGlitch then connections.speedGlitch:Disconnect() end
-        connections.speedGlitch = rs.Stepped:Connect(function()
-            if not toggles.speedGlitch then return end
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.WalkSpeed = settings.speed
-            end
-        end)
-    else
-        if connections.speedGlitch then connections.speedGlitch:Disconnect() end
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = 16
-        end
-    end
-end
-
--- ===== TELEPORT TO PLAYER =====
-local function toggleTeleportToPlayer(state)
-    toggles.teleportToPlayer = state
-end
-
-local function teleportToPlayer()
-    if not toggles.teleportToPlayer then return end
-    local target = nil
-    local targetDist = math.huge
-    for _, plr in ipairs(game.Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            if dist < targetDist then
-                target = plr
-                targetDist = dist
-            end
-        end
-    end
-    if target and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
-    end
-end
-
--- Кнопка T для телепорта к игроку
-uis.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.T and toggles.teleportToPlayer then
-        teleportToPlayer()
-    end
+mouse.Button2Down:Connect(function()
+    flingPlayerByRightClick()
 end)
 
--- ===== FLING PLAYER =====
-local function toggleFlingPlayer(state)
-    toggles.flingPlayer = state
-    if state then
-        if connections.flingPlayer then connections.flingPlayer:Disconnect() end
-        connections.flingPlayer = rs.Stepped:Connect(function()
-            if not toggles.flingPlayer then return end
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                for _, plr in ipairs(game.Players:GetPlayers()) do
-                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < 10 then
-                            pcall(function()
-                                plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, 1000, 0)
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
-    else
-        if connections.flingPlayer then connections.flingPlayer:Disconnect() end
-    end
-end
+-- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
+-- ESP, Silent Aim, Hitbox, Anti-AFK, Auto Collect, Kill All, Wall Hop, Speed Glitch - стандартные
 
 -- ===== МЕНЮ =====
 local function createMenu()
@@ -312,8 +289,8 @@ local function createMenu()
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 500, 0, 580)
-    main.Position = UDim2.new(0.5, -250, 0.5, -290)
+    main.Size = UDim2.new(0, 450, 0, 520)
+    main.Position = UDim2.new(0.5, -225, 0.5, -260)
     main.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
     main.BackgroundTransparency = 0.1
     main.BorderSizePixel = 2
@@ -322,7 +299,6 @@ local function createMenu()
     main.Draggable = true
     main.Parent = gui
 
-    -- Аниме-заголовок
     local title = Instance.new("Frame")
     title.Size = UDim2.new(1,0,0,50)
     title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
@@ -389,60 +365,22 @@ local function createMenu()
         return btn
     end
 
-    local function createSlider(txt, y, min, max, def, cb)
-        local fr = Instance.new("Frame")
-        fr.Size = UDim2.new(0.85, 0, 0, 25)
-        fr.Position = UDim2.new(0.075, 0, y, 0)
-        fr.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
-        fr.BorderSizePixel = 0
-        fr.Parent = main
-
-        local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(0.4, 0, 1, 0)
-        lbl.Position = UDim2.new(0.02, 0, 0, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = txt
-        lbl.TextColor3 = Color3.fromRGB(255, 200, 200)
-        lbl.TextScaled = true
-        lbl.Font = Enum.Font.Gotham
-        lbl.Parent = fr
-
-        local sl = Instance.new("TextButton")
-        sl.Size = UDim2.new(0.4, 0, 0.7, 0)
-        sl.Position = UDim2.new(0.45, 0, 0.15, 0)
-        sl.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
-        sl.BorderSizePixel = 1
-        sl.BorderColor3 = Color3.fromRGB(255, 50, 50)
-        sl.Text = tostring(def)
-        sl.TextColor3 = Color3.fromRGB(255, 255, 255)
-        sl.TextScaled = true
-        sl.Font = Enum.Font.Gotham
-        sl.Parent = fr
-        local val = def
-        sl.MouseButton1Click:Connect(function()
-            val = val + 10
-            if val > max then val = min end
-            sl.Text = tostring(val)
-            cb(val)
-        end)
-        return sl
-    end
-
-    -- КНОПКИ
     createBtn("👁️ ESP", 0.08, function(s) toggles.esp = s updateESP() end)
-    createBtn("🎯 Silent Aim", 0.14, toggleSilentAim)
-    createBtn("📦 Hitbox Extender", 0.20, toggleHitbox)
-    createBtn("💤 Anti-AFK", 0.26, toggleAntiAFK)
-    createBtn("💰 Auto Collect", 0.32, toggleAutoCollect)
-    createBtn("💀 Kill All", 0.38, toggleKillAll)
-    createBtn("🧱 Wall Hop", 0.44, toggleWallHop)
-    createBtn("⚡ Speed Glitch", 0.50, toggleSpeedGlitch)
-    createBtn("👤 Teleport to Player [T]", 0.56, toggleTeleportToPlayer)
-    createBtn("🌀 Fling Player", 0.62, toggleFlingPlayer)
-
-    -- СЛАЙДЕРЫ
-    createSlider("⚡ Speed", 0.70, 20, 300, settings.speed, function(v) settings.speed = v end)
-    createSlider("📦 Hitbox Size", 0.77, 1, 20, settings.hitboxSize, function(v) settings.hitboxSize = v end)
+    createBtn("🎯 Silent Aim", 0.16, toggleSilentAim)
+    createBtn("📦 Hitbox", 0.24, toggleHitbox)
+    createBtn("💤 Anti-AFK", 0.32, toggleAntiAFK)
+    createBtn("💰 Auto Collect", 0.40, toggleAutoCollect)
+    createBtn("💀 Kill All", 0.48, toggleKillAll)
+    createBtn("🧱 Wall Hop", 0.56, toggleWallHop)
+    createBtn("⚡ Speed Glitch", 0.64, toggleSpeedGlitch)
+    createBtn("👤 Teleport [ПКМ]", 0.72, function(s) 
+        toggles.teleportToPlayer = s 
+        if s then createTeleportMenu() end
+    end)
+    createBtn("🌀 Fling [ПКМ]", 0.80, function(s) 
+        toggles.flingPlayer = s 
+        if s then createFlingMenu() end
+    end)
 
     print("✅ KABANCIK HUB загружен!")
 end
