@@ -1,0 +1,88 @@
+-- RYZEN HUB [MMV]
+local p=game.Players.LocalPlayer
+local m=p:GetMouse()
+local s={speedglitch=100,flyspeed=50,jumppower=120,spinSpeed=10}
+local t={esp=false,triggerbot=false,speedglitch=false,jump=false,noclip=false,teleport=false,fly=false,showFps=false,autoCollectGun=false,spinBot=false,fling=false}
+local binds={}
+local bm=false
+local sf=nil
+local bmGui=nil
+local plGui=nil
+local espOb={}
+local ncActive=false
+local ncStart=0
+local ncConn=nil
+local tbConn=nil
+local sgConn=nil
+local spConn=nil
+local flConn=nil
+local flyConn=nil
+
+local function togglePlayerList()
+ if plGui then plGui:Destroy() plGui=nil return end
+ plGui=Instance.new("ScreenGui")
+ plGui.Name="PlayerList"
+ plGui.Parent=game.CoreGui
+ local f=Instance.new("Frame")
+ f.Size=UDim2.new(0,200,0,300)
+ f.Position=UDim2.new(0.7,0,0.3,0)
+ f.BackgroundColor3=Color3.fromRGB(30,30,35)
+ f.BackgroundTransparency=0.1
+ f.BorderSizePixel=0
+ f.Parent=plGui
+ local ti=Instance.new("TextLabel")
+ ti.Size=UDim2.new(1,0,0,30)
+ ti.BackgroundTransparency=1
+ ti.Text="ИГРОКИ"
+ ti.TextColor3=Color3.fromRGB(255,70,70)
+ ti.TextScaled=true
+ ti.Font=Enum.Font.GothamBold
+ ti.Parent=f
+ local l=Instance.new("ScrollingFrame")
+ l.Size=UDim2.new(1,0,1,-30)
+ l.Position=UDim2.new(0,0,0,30)
+ l.BackgroundTransparency=1
+ l.Parent=f
+ local function upd()
+  for _,c in ipairs(l:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+  local y=0
+  for _,pl in ipairs(game.Players:GetPlayers()) do
+   if pl~=p then
+    local b=Instance.new("TextButton")
+    b.Size=UDim2.new(1,0,0,30)
+    b.Position=UDim2.new(0,0,0,y)
+    b.BackgroundColor3=Color3.fromRGB(55,55,60)
+    b.BorderSizePixel=0
+    b.Text=pl.Name
+    b.TextColor3=Color3.fromRGB(255,255,255)
+    b.TextScaled=true
+    b.Font=Enum.Font.Gotham
+    b.Parent=l
+    b.MouseButton1Click:Connect(function()
+     if pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+      pl.Character.HumanoidRootPart.CFrame=CFrame.new(0,-500,0)
+      print("🚀 "..pl.Name.." выкинут!")
+     end
+    end)
+    y=y+30
+   end
+  end
+ end
+ upd()
+ game.Players.PlayerAdded:Connect(upd)
+ game.Players.PlayerRemoving:Connect(upd)
+end
+
+local function getRole(pl)
+ if not pl or not pl.Character then return "Innocent" end
+ local k,g=false,false
+ for _,tool in ipairs(pl.Character:GetChildren()) do
+  if tool:IsA("Tool") then
+   local n=tool.Name:lower()
+   if n:find("knife") or n:find("dagger") then k=true end
+   if n:find("gun") or n:find("pistol") or n:find("revolver") then g=true end
+  end
+ end
+ if pl.Backpack then
+  for _,tool in ipairs(pl.Backpack:GetChildren()) do
+   if tool:IsA("Tool") then
