@@ -1,4 +1,4 @@
--- RYZEN HUB - ПРАВЫЙ SHIFT
+-- RYZEN HUB - RED ANIME STYLE
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -6,23 +6,31 @@ local settings = {
     bunnyhop = 100,
     flyspeed = 50,
     jumppower = 120,
+    spinSpeed = 10,
 }
 
 local toggles = {
     esp = false,
+    showMurderer = true,
+    showSheriff = true,
+    showInnocent = false,
     triggerbot = false,
     bunnyhop = false,
     jump = false,
     noclip = false,
     teleport = false,
     fly = false,
+    showFps = false,
+    spinBot = false,
+    fling = false,
+    shotMurderer = false,
 }
 
 local espObjects = {}
-local buttonGui = nil
+local fpsLabel = nil
 
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
-local triggerbotConnection, bunnyHopConnection, flyConnection = nil, nil, nil
+local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
 
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
 local function getPlayerRole(plr)
@@ -61,6 +69,12 @@ local function updateESP()
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr == player or not plr.Character or not plr.Character:FindFirstChild("Head") then continue end
         local role = getPlayerRole(plr)
+        local show = false
+        if role == "Murderer" and toggles.showMurderer then show = true end
+        if role == "Sheriff" and toggles.showSheriff then show = true end
+        if role == "Innocent" and toggles.showInnocent then show = true end
+        if not show then continue end
+
         local color = role == "Murderer" and Color3.fromRGB(255, 0, 0) or 
                      role == "Sheriff" and Color3.fromRGB(0, 100, 255) or 
                      Color3.fromRGB(0, 255, 0)
@@ -118,8 +132,18 @@ local function toggleTriggerBot(state)
     end
 end
 
--- ===== УБИТЬ МАРДЕРА =====
+-- ===== SHOT MURDERER =====
+local function toggleShotMurderer(state)
+    toggles.shotMurderer = state
+    if state then
+        print("🔫 Режим убийства мардера включён! Нажмите H, чтобы убить мардера.")
+    else
+        print("🔫 Режим убийства мардера выключен.")
+    end
+end
+
 local function killMurderer()
+    if not toggles.shotMurderer then return end
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
             if getPlayerRole(plr) == "Murderer" then
@@ -132,7 +156,7 @@ local function killMurderer()
     print("❌ Мардер не найден!")
 end
 
--- ===== BUNNY HOP =====
+-- ===== BUNNY HOP (ИСПРАВЛЕННЫЙ) =====
 local function toggleBunnyHop(state)
     toggles.bunnyhop = state
     if state then
@@ -153,6 +177,51 @@ local function toggleBunnyHop(state)
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.WalkSpeed = 16
         end
+    end
+end
+
+-- ===== SPIN BOT =====
+local function toggleSpinBot(state)
+    toggles.spinBot = state
+    if state then
+        if spinConnection then spinConnection:Disconnect() end
+        spinConnection = game:GetService("RunService").Stepped:Connect(function()
+            if not toggles.spinBot then 
+                if spinConnection then spinConnection:Disconnect() end
+                return 
+            end
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                player.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.Angles(0, math.rad(settings.spinSpeed), 0)
+            end
+        end)
+    else
+        if spinConnection then spinConnection:Disconnect() end
+    end
+end
+
+-- ===== FLING =====
+local function toggleFling(state)
+    toggles.fling = state
+    if state then
+        if flingConnection then flingConnection:Disconnect() end
+        flingConnection = game:GetService("RunService").Stepped:Connect(function()
+            if not toggles.fling then 
+                if flingConnection then flingConnection:Disconnect() end
+                return 
+            end
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                for _, plr in ipairs(game.Players:GetPlayers()) do
+                    if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < 10 then
+                            plr.Character.HumanoidRootPart.Velocity = Vector3.new(0, 1000, 0)
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        if flingConnection then flingConnection:Disconnect() end
     end
 end
 
@@ -242,68 +311,138 @@ local function toggleFly(state)
     end
 end
 
--- ===== КНОПКИ НА ЭКРАНЕ =====
-local function createButtons()
-    if buttonGui then buttonGui:Destroy() end
+local function toggleFps(state)
+    toggles.showFps = state
+    if state then
+        if fpsLabel then fpsLabel:Destroy() end
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "FPSDisplay"
+        screenGui.Parent = game.CoreGui
+        fpsLabel = Instance.new("TextLabel")
+        fpsLabel.Size = UDim2.new(0, 100, 0, 30)
+        fpsLabel.Position = UDim2.new(0, 10, 0, 10)
+        fpsLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        fpsLabel.BackgroundTransparency = 0.3
+        fpsLabel.BorderSizePixel = 0
+        fpsLabel.Text = "FPS: 0"
+        fpsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        fpsLabel.TextScaled = true
+        fpsLabel.Font = Enum.Font.GothamBold
+        fpsLabel.Parent = screenGui
+        local frames = 0
+        local lastTime = tick()
+        game:GetService("RunService").Heartbeat:Connect(function()
+            frames = frames + 1
+            if tick() - lastTime >= 1 then
+                if fpsLabel then fpsLabel.Text = "FPS: " .. frames end
+                frames = 0
+                lastTime = tick()
+            end
+        end)
+    else
+        if fpsLabel then fpsLabel:Destroy() end
+    end
+end
 
-    buttonGui = Instance.new("ScreenGui")
-    buttonGui.Name = "RyzenButtons"
-    buttonGui.Parent = game.CoreGui
-    buttonGui.ResetOnSpawn = false
+-- Обработчики клавиш
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.H then
+        killMurderer()
+    end
+end)
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 380)
-    frame.Position = UDim2.new(0.5, -100, 0.5, -190)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.Active = true
-    frame.Draggable = true
-    frame.Parent = buttonGui
+-- ===== ГЛАВНОЕ МЕНЮ (КВАДРАТНОЕ, КРАСНОЕ АНИМЕ) =====
+local function createRyzenHub()
+    if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+        game.CoreGui.RyzenHubGUI:Destroy()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "RyzenHubGUI"
+    screenGui.Parent = game.CoreGui
+    screenGui.ResetOnSpawn = false
+
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 450, 0, 520)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -260)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 0) -- Тёмно-красный
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 2
+    mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = screenGui
+
+    -- Заголовок (аниме стиль)
+    local titleFrame = Instance.new("Frame")
+    titleFrame.Size = UDim2.new(1, 0, 0, 50)
+    titleFrame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+    titleFrame.BorderSizePixel = 0
+    titleFrame.Parent = mainFrame
+
+    local logo = Instance.new("ImageLabel")
+    logo.Size = UDim2.new(0, 35, 0, 35)
+    logo.Position = UDim2.new(0.02, 0, 0.1, 0)
+    logo.BackgroundTransparency = 1
+    logo.Image = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/AMD_Ryzen_logo.svg/120px-AMD_Ryzen_logo.svg.png"
+    logo.Parent = titleFrame
 
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Size = UDim2.new(1, -50, 1, 0)
+    title.Position = UDim2.new(0, 50, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "RYZEN HUB"
-    title.TextColor3 = Color3.fromRGB(255, 80, 80)
+    title.TextColor3 = Color3.fromRGB(255, 50, 50) -- Ярко-красный
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
-    title.Parent = frame
+    title.Parent = titleFrame
 
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeBtn.Position = UDim2.new(1, -30, 0, 2)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -36, 0, 10)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
     closeBtn.BorderSizePixel = 0
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closeBtn.TextScaled = true
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = frame
-    closeBtn.MouseButton1Click:Connect(function()
-        if buttonGui then buttonGui:Destroy() end
-    end)
+    closeBtn.Parent = titleFrame
+    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
-    local function createBtn(text, yPos, callback)
+    local function createSection(titleText, yPos)
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.85, 0, 0, 20)
+        label.Position = UDim2.new(0.075, 0, yPos, 0)
+        label.BackgroundTransparency = 1
+        label.Text = "» " .. titleText .. " «"
+        label.TextColor3 = Color3.fromRGB(255, 100, 100)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.Parent = mainFrame
+        return label
+    end
+
+    local function createButton(text, yPos, callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85, 0, 0, 30)
+        btn.Size = UDim2.new(0.85, 0, 0, 28)
         btn.Position = UDim2.new(0.075, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        btn.BorderSizePixel = 0
+        btn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(255, 50, 50)
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         btn.TextScaled = true
         btn.Font = Enum.Font.Gotham
-        btn.Parent = frame
+        btn.Parent = mainFrame
 
         local isActive = false
         btn.MouseButton1Click:Connect(function()
             isActive = not isActive
             if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
-                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
+                btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+                btn.TextColor3 = Color3.fromRGB(255, 150, 150)
             else
-                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+                btn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
                 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             end
             callback(isActive)
@@ -312,37 +451,98 @@ local function createButtons()
         return btn
     end
 
-    createBtn("👁️ ESP", 0.12, function(s) toggles.esp = s updateESP() end)
-    createBtn("🎯 Trigger Bot", 0.22, toggleTriggerBot)
-    createBtn("🐇 Bunny Hop", 0.32, toggleBunnyHop)
-    createBtn("🦘 Super Jump", 0.42, toggleJump)
-    createBtn("🌀 Noclip", 0.52, toggleNoclip)
-    createBtn("📍 Teleport", 0.62, toggleTeleport)
-    createBtn("✈️ Fly", 0.72, toggleFly)
+    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0.85, 0, 0, 25)
+        frame.Position = UDim2.new(0.075, 0, yPos, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+        frame.BorderSizePixel = 0
+        frame.Parent = mainFrame
 
-    local killBtn = Instance.new("TextButton")
-    killBtn.Size = UDim2.new(0.85, 0, 0, 30)
-    killBtn.Position = UDim2.new(0.075, 0, 0.82, 0)
-    killBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-    killBtn.BorderSizePixel = 0
-    killBtn.Text = "💀 УБИТЬ МАРДЕРА"
-    killBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    killBtn.TextScaled = true
-    killBtn.Font = Enum.Font.GothamBold
-    killBtn.Parent = frame
-    killBtn.MouseButton1Click:Connect(killMurderer)
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.4, 0, 1, 0)
+        label.Position = UDim2.new(0.02, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 200, 200)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.Parent = frame
+
+        local slider = Instance.new("TextButton")
+        slider.Size = UDim2.new(0.4, 0, 0.7, 0)
+        slider.Position = UDim2.new(0.45, 0, 0.15, 0)
+        slider.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+        slider.BorderSizePixel = 1
+        slider.BorderColor3 = Color3.fromRGB(255, 50, 50)
+        slider.Text = tostring(defaultVal)
+        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
+        slider.TextScaled = true
+        slider.Font = Enum.Font.Gotham
+        slider.Parent = frame
+
+        local value = defaultVal
+        slider.MouseButton1Click:Connect(function()
+            local newVal = value + 10
+            if newVal > maxVal then newVal = minVal end
+            value = newVal
+            slider.Text = tostring(value)
+            callback(value)
+        end)
+        return slider
+    end
+
+    -- РАЗДЕЛЫ
+    createSection("MOVEMENT", 0.05)
+    createButton("🐇 Bunny Hop", 0.10, toggleBunnyHop)
+    createButton("🦘 Super Jump", 0.15, toggleJump)
+    createButton("✈️ Fly", 0.20, toggleFly)
+    createButton("🌀 Noclip", 0.25, toggleNoclip)
+    createButton("📍 Teleport", 0.30, toggleTeleport)
+
+    createSection("COMBAT", 0.35)
+    createButton("🎯 Trigger Bot", 0.40, toggleTriggerBot)
+    createButton("🔫 Shot Murderer [H]", 0.45, toggleShotMurderer)
+
+    createSection("ESP", 0.50)
+    createButton("👁️ ESP", 0.55, function(state)
+        toggles.esp = state
+        updateESP()
+    end)
+    createButton("🔴 Murderer", 0.60, function(state) toggles.showMurderer = state end)
+    createButton("🟢 Sheriff", 0.65, function(state) toggles.showSheriff = state end)
+    createButton("⚪ Innocent", 0.70, function(state) toggles.showInnocent = state end)
+
+    createSection("TROLL", 0.75)
+    createButton("🔄 Spin Bot", 0.80, toggleSpinBot)
+    createButton("💥 Fling", 0.85, toggleFling)
+
+    createSection("OTHER", 0.90)
+    createButton("📊 FPS", 0.95, toggleFps)
+
+    -- СЛАЙДЕРЫ
+    createSlider("🐇 Bunny Speed", 1.00, 20, 300, settings.bunnyhop, function(val)
+        settings.bunnyhop = val
+    end)
+    createSlider("✈️ Fly Speed", 1.06, 10, 200, settings.flyspeed, function(val)
+        settings.flyspeed = val
+    end)
+    createSlider("🦘 Jump Power", 1.12, 50, 300, settings.jumppower, function(val)
+        settings.jumppower = val
+    end)
+
+    print("✅ Ryzen Hub загружен!")
 end
 
 -- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightShift then
-        if buttonGui and buttonGui.Parent then
-            buttonGui:Destroy()
-            buttonGui = nil
+        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+            game.CoreGui.RyzenHubGUI:Destroy()
         else
-            createButtons()
+            createRyzenHub()
         end
     end
 end)
 
-print("✅ Ryzen Hub загружен! Нажмите ПРАВЫЙ SHIFT для открытия кнопок.")
+createRyzenHub()
