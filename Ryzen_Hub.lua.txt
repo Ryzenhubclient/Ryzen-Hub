@@ -1,12 +1,24 @@
--- RYZEN HUB - RED ANIME STYLE
+-- RYZEN HUB - PULSE STYLE + АВТО-ПОДБОР ПИСТОЛЕТА
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
+local tweenService = game:GetService("TweenService")
+
+-- ===== НАСТРОЙКИ ТЕМ =====
+local themes = {
+    Red = {bg = Color3.fromRGB(20,0,0), border = Color3.fromRGB(255,0,0), accent = Color3.fromRGB(255,50,50), text = Color3.fromRGB(255,255,255)},
+    Blue = {bg = Color3.fromRGB(0,0,20), border = Color3.fromRGB(0,100,255), accent = Color3.fromRGB(50,150,255), text = Color3.fromRGB(255,255,255)},
+    Green = {bg = Color3.fromRGB(0,20,0), border = Color3.fromRGB(0,255,100), accent = Color3.fromRGB(50,255,150), text = Color3.fromRGB(255,255,255)},
+    Purple = {bg = Color3.fromRGB(20,0,20), border = Color3.fromRGB(200,0,255), accent = Color3.fromRGB(220,50,255), text = Color3.fromRGB(255,255,255)},
+    Gold = {bg = Color3.fromRGB(20,15,0), border = Color3.fromRGB(255,200,0), accent = Color3.fromRGB(255,220,50), text = Color3.fromRGB(255,255,255)},
+}
+local currentTheme = "Red"
 
 local settings = {
     bunnyhop = 100,
     flyspeed = 50,
     jumppower = 120,
     spinSpeed = 10,
+    autoPickupGun = false,
 }
 
 local toggles = {
@@ -28,11 +40,12 @@ local toggles = {
 
 local espObjects = {}
 local fpsLabel = nil
+local gui = nil
 
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
 local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
 
--- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
+-- ===== ФУНКЦИЯ ОПРЕДЕЛЕНИЯ РОЛИ =====
 local function getPlayerRole(plr)
     if not plr or not plr.Character then return "Innocent" end
     local hasKnife, hasGun = false, false
@@ -156,7 +169,7 @@ local function killMurderer()
     print("❌ Мардер не найден!")
 end
 
--- ===== BUNNY HOP (ИСПРАВЛЕННЫЙ) =====
+-- ===== BUNNY HOP =====
 local function toggleBunnyHop(state)
     toggles.bunnyhop = state
     if state then
@@ -224,6 +237,78 @@ local function toggleFling(state)
         if flingConnection then flingConnection:Disconnect() end
     end
 end
+
+-- ===== АВТО-ПОДБОР ПИСТОЛЕТА ПОСЛЕ СМЕРТИ =====
+local function autoPickupGun()
+    if not settings.autoPickupGun then return end
+    task.wait(1) -- ждём возрождения
+    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local character = player.Character
+        local root = character.HumanoidRootPart
+        local gunFound = false
+        for _, item in ipairs(workspace:GetDescendants()) do
+            if item:IsA("Tool") then
+                local name = item.Name:lower()
+                if name:find("gun") or name:find("pistol") or name:find("revolver") then
+                    if item.Parent ~= character and item.Parent ~= player.Backpack then
+                        local dist = (item.Position - root.Position).Magnitude
+                        if dist < 100 then -- ищем в радиусе 100
+                            -- телепортируем к пистолету и забираем
+                            root.CFrame = CFrame.new(item.Position + Vector3.new(0, 2, 0))
+                            task.wait(0.2)
+                            item.Parent = character
+                            print("🔫 Пистолет автоматически подобран после смерти!")
+                            gunFound = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        if not gunFound then
+            print("❌ Пистолет не найден на карте.")
+        end
+    end
+end
+
+-- Подключаем авто-подбор к событию смерти/возрождения
+player.CharacterAdded:Connect(autoPickupGun)
+
+-- ===== ЗАБРАТЬ ПИСТОЛЕТ С КАРТЫ ПО НАЖАТИЮ КНОПКИ =====
+local function pickupGunFromMap()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    local root = player.Character.HumanoidRootPart
+    local gunFound = false
+    for _, item in ipairs(workspace:GetDescendants()) do
+        if item:IsA("Tool") then
+            local name = item.Name:lower()
+            if name:find("gun") or name:find("pistol") or name:find("revolver") then
+                if item.Parent ~= player.Character and item.Parent ~= player.Backpack then
+                    local dist = (item.Position - root.Position).Magnitude
+                    if dist < 100 then
+                        root.CFrame = CFrame.new(item.Position + Vector3.new(0, 2, 0))
+                        task.wait(0.2)
+                        item.Parent = player.Character
+                        print("🔫 Пистолет подобран с карты!")
+                        gunFound = true
+                        break
+                    end
+                end
+            end
+        end
+    end
+    if not gunFound then
+        print("❌ Пистолет не найден на карте (или слишком далеко).")
+    end
+end
+
+-- Клавиша G для забора пистолета
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.G and not input.UserInputType == Enum.UserInputType.Keyboard then return end
+    if input.KeyCode == Enum.KeyCode.G then
+        pickupGunFromMap()
+    end
+end)
 
 -- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
 local function toggleJump(state)
@@ -344,39 +429,64 @@ local function toggleFps(state)
     end
 end
 
--- Обработчики клавиш
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.H then
-        killMurderer()
+-- ===== ФУНКЦИЯ СМЕНЫ ТЕМЫ =====
+local function applyTheme(themeName)
+    currentTheme = themeName
+    local theme = themes[themeName]
+    if not theme then return end
+    if gui then
+        local mainFrame = gui:FindFirstChild("MainFrame")
+        if mainFrame then
+            mainFrame.BackgroundColor3 = theme.bg
+            mainFrame.BorderColor3 = theme.border
+        end
+        local titleFrame = gui:FindFirstChild("MainFrame"):FindFirstChild("TitleFrame")
+        if titleFrame then
+            titleFrame.BackgroundColor3 = theme.bg + Color3.fromRGB(20,0,0) -- чуть светлее
+        end
+        local title = titleFrame and titleFrame:FindFirstChild("Title")
+        if title then
+            title.TextColor3 = theme.accent
+        end
+        for _, btn in ipairs(gui:GetDescendants()) do
+            if btn:IsA("TextButton") and btn.Name ~= "CloseBtn" then
+                if btn.BackgroundColor3 ~= Color3.fromRGB(150,0,0) then -- не трогаем кнопку убийства
+                    btn.BackgroundColor3 = theme.bg + Color3.fromRGB(30,0,0)
+                    btn.BorderColor3 = theme.border
+                    btn.TextColor3 = theme.text
+                end
+            end
+        end
+        print("🎨 Тема изменена на " .. themeName)
     end
-end)
+end
 
--- ===== ГЛАВНОЕ МЕНЮ (КВАДРАТНОЕ, КРАСНОЕ АНИМЕ) =====
+-- ===== ГЛАВНОЕ МЕНЮ (КВАДРАТНОЕ) =====
 local function createRyzenHub()
-    if game.CoreGui:FindFirstChild("RyzenHubGUI") then
-        game.CoreGui.RyzenHubGUI:Destroy()
-    end
+    if gui then gui:Destroy() end
 
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "RyzenHubGUI"
-    screenGui.Parent = game.CoreGui
-    screenGui.ResetOnSpawn = false
+    gui = Instance.new("ScreenGui")
+    gui.Name = "RyzenHubGUI"
+    gui.Parent = game.CoreGui
+    gui.ResetOnSpawn = false
 
     local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.new(0, 450, 0, 520)
     mainFrame.Position = UDim2.new(0.5, -225, 0.5, -260)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 0, 0) -- Тёмно-красный
+    mainFrame.BackgroundColor3 = themes[currentTheme].bg
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 2
-    mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    mainFrame.BorderColor3 = themes[currentTheme].border
     mainFrame.Active = true
     mainFrame.Draggable = true
-    mainFrame.Parent = screenGui
+    mainFrame.Parent = gui
 
-    -- Заголовок (аниме стиль)
+    -- Заголовок
     local titleFrame = Instance.new("Frame")
+    titleFrame.Name = "TitleFrame"
     titleFrame.Size = UDim2.new(1, 0, 0, 50)
-    titleFrame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+    titleFrame.BackgroundColor3 = themes[currentTheme].bg + Color3.fromRGB(20,0,0)
     titleFrame.BorderSizePixel = 0
     titleFrame.Parent = mainFrame
 
@@ -388,16 +498,18 @@ local function createRyzenHub()
     logo.Parent = titleFrame
 
     local title = Instance.new("TextLabel")
+    title.Name = "Title"
     title.Size = UDim2.new(1, -50, 1, 0)
     title.Position = UDim2.new(0, 50, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "RYZEN HUB"
-    title.TextColor3 = Color3.fromRGB(255, 50, 50) -- Ярко-красный
+    title.TextColor3 = themes[currentTheme].accent
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = titleFrame
 
     local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseBtn"
     closeBtn.Size = UDim2.new(0, 28, 0, 28)
     closeBtn.Position = UDim2.new(1, -36, 0, 10)
     closeBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
@@ -407,30 +519,32 @@ local function createRyzenHub()
     closeBtn.TextScaled = true
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.Parent = titleFrame
-    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+    closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
 
+    -- Функция создания секции
     local function createSection(titleText, yPos)
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0.85, 0, 0, 20)
         label.Position = UDim2.new(0.075, 0, yPos, 0)
         label.BackgroundTransparency = 1
         label.Text = "» " .. titleText .. " «"
-        label.TextColor3 = Color3.fromRGB(255, 100, 100)
+        label.TextColor3 = themes[currentTheme].accent
         label.TextScaled = true
         label.Font = Enum.Font.GothamBold
         label.Parent = mainFrame
         return label
     end
 
+    -- Функция создания кнопки
     local function createButton(text, yPos, callback)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0.85, 0, 0, 28)
         btn.Position = UDim2.new(0.075, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+        btn.BackgroundColor3 = themes[currentTheme].bg + Color3.fromRGB(30,0,0)
         btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(255, 50, 50)
+        btn.BorderColor3 = themes[currentTheme].border
         btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextColor3 = themes[currentTheme].text
         btn.TextScaled = true
         btn.Font = Enum.Font.Gotham
         btn.Parent = mainFrame
@@ -439,11 +553,11 @@ local function createRyzenHub()
         btn.MouseButton1Click:Connect(function()
             isActive = not isActive
             if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-                btn.TextColor3 = Color3.fromRGB(255, 150, 150)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(50, 0, 0)
+                btn.BackgroundColor3 = themes[currentTheme].border
                 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            else
+                btn.BackgroundColor3 = themes[currentTheme].bg + Color3.fromRGB(30,0,0)
+                btn.TextColor3 = themes[currentTheme].text
             end
             callback(isActive)
             if text:find("ESP") then updateESP() end
@@ -451,11 +565,12 @@ local function createRyzenHub()
         return btn
     end
 
+    -- Функция создания слайдера
     local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(0.85, 0, 0, 25)
         frame.Position = UDim2.new(0.075, 0, yPos, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+        frame.BackgroundColor3 = themes[currentTheme].bg + Color3.fromRGB(20,0,0)
         frame.BorderSizePixel = 0
         frame.Parent = mainFrame
 
@@ -464,7 +579,7 @@ local function createRyzenHub()
         label.Position = UDim2.new(0.02, 0, 0, 0)
         label.BackgroundTransparency = 1
         label.Text = text
-        label.TextColor3 = Color3.fromRGB(255, 200, 200)
+        label.TextColor3 = themes[currentTheme].text
         label.TextScaled = true
         label.Font = Enum.Font.Gotham
         label.Parent = frame
@@ -472,11 +587,11 @@ local function createRyzenHub()
         local slider = Instance.new("TextButton")
         slider.Size = UDim2.new(0.4, 0, 0.7, 0)
         slider.Position = UDim2.new(0.45, 0, 0.15, 0)
-        slider.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+        slider.BackgroundColor3 = themes[currentTheme].bg + Color3.fromRGB(40,0,0)
         slider.BorderSizePixel = 1
-        slider.BorderColor3 = Color3.fromRGB(255, 50, 50)
+        slider.BorderColor3 = themes[currentTheme].border
         slider.Text = tostring(defaultVal)
-        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
+        slider.TextColor3 = themes[currentTheme].text
         slider.TextScaled = true
         slider.Font = Enum.Font.Gotham
         slider.Parent = frame
@@ -520,14 +635,30 @@ local function createRyzenHub()
     createSection("OTHER", 0.90)
     createButton("📊 FPS", 0.95, toggleFps)
 
-    -- СЛАЙДЕРЫ
-    createSlider("🐇 Bunny Speed", 1.00, 20, 300, settings.bunnyhop, function(val)
+    -- НОВЫЙ РАЗДЕЛ: НАСТРОЙКИ GUI И ПИСТОЛЕТ
+    createSection("SETTINGS", 1.00)
+    createButton("🎨 Сменить тему", 1.05, function()
+        local themeNames = {"Red","Blue","Green","Purple","Gold"}
+        local currentIndex = table.find(themeNames, currentTheme) or 1
+        local nextIndex = currentIndex % #themeNames + 1
+        applyTheme(themeNames[nextIndex])
+    end)
+    createButton("🔫 Авто-подбор после смерти", 1.10, function(state)
+        settings.autoPickupGun = state
+        print(state and "✅ Авто-подбор включён" or "❌ Авто-подбор выключен")
+    end)
+    createButton("🔫 Забрать пистолет [G]", 1.15, function()
+        pickupGunFromMap()
+    end)
+
+    -- СЛАЙДЕРЫ (подняты выше)
+    createSlider("🐇 Bunny Speed", 1.20, 20, 300, settings.bunnyhop, function(val)
         settings.bunnyhop = val
     end)
-    createSlider("✈️ Fly Speed", 1.06, 10, 200, settings.flyspeed, function(val)
+    createSlider("✈️ Fly Speed", 1.26, 10, 200, settings.flyspeed, function(val)
         settings.flyspeed = val
     end)
-    createSlider("🦘 Jump Power", 1.12, 50, 300, settings.jumppower, function(val)
+    createSlider("🦘 Jump Power", 1.32, 50, 300, settings.jumppower, function(val)
         settings.jumppower = val
     end)
 
@@ -537,11 +668,19 @@ end
 -- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightShift then
-        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
-            game.CoreGui.RyzenHubGUI:Destroy()
+        if gui and gui.Parent then
+            gui:Destroy()
+            gui = nil
         else
             createRyzenHub()
         end
+    end
+end)
+
+-- Обработчик клавиши H (убийство мардера)
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.H then
+        killMurderer()
     end
 end)
 
