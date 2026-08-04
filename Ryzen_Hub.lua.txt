@@ -1,4 +1,4 @@
--- RYZEN HUB - С КНОПКОЙ ЗАГРУЗКИ JakeCSG-HUB
+-- RYZEN HUB - РАБОЧАЯ ВЕРСИЯ (ПОЛНАЯ)
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -215,7 +215,7 @@ local function toggleFly(state)
     end
 end
 
--- ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+-- ===== ЗАБРАТЬ ПИСТОЛЕТ =====
 local function pickupGun()
     if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
     local root = player.Character.HumanoidRootPart
@@ -239,15 +239,7 @@ local function pickupGun()
     end
 end
 
--- ===== ЗАГРУЗЧИК JAKE CSG HUB =====
-local function loadJakeHub()
-    pcall(function()
-        loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-JakeCSG-HUB-Script-New-Features-10-games-support-235045"))()
-        print("✅ JakeCSG-HUB загружен!")
-    end)
-end
-
--- ===== СОЗДАНИЕ МЕНЮ =====
+-- ===== МЕНЮ =====
 local function createMenu()
     if gui then gui:Destroy() end
     gui = Instance.new("ScreenGui")
@@ -256,8 +248,8 @@ local function createMenu()
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 400, 0, 500)
-    main.Position = UDim2.new(0.5, -200, 0.5, -250)
+    main.Size = UDim2.new(0, 400, 0, 480)
+    main.Position = UDim2.new(0.5, -200, 0.5, -240)
     main.BackgroundColor3 = Color3.fromRGB(10,0,10)
     main.BackgroundTransparency = 0.1
     main.BorderSizePixel = 2
@@ -368,7 +360,7 @@ local function createMenu()
         return sl
     end
 
-    -- КНОПКИ RYZEN HUB
+    -- КНОПКИ
     createBtn("👁️ ESP", 0.08, function(s) toggles.esp = s updateESP() end)
     createBtn("🎯 Trigger Bot", 0.14, toggleTrigger)
     createBtn("⚡ Speed Glitch", 0.20, toggleSpeed)
@@ -379,30 +371,10 @@ local function createMenu()
     createBtn("🔫 Shot Murderer [H]", 0.50, toggleShot)
     createBtn("🔫 Забрать пистолет [G]", 0.56, function() pickupGun() end)
 
-    -- КНОПКА ДЛЯ ЗАГРУЗКИ JAKE CSG HUB
-    local jakeBtn = Instance.new("TextButton")
-    jakeBtn.Size = UDim2.new(0.85,0,0,28)
-    jakeBtn.Position = UDim2.new(0.075,0,0.63,0)
-    jakeBtn.BackgroundColor3 = Color3.fromRGB(50,0,50)
-    jakeBtn.BorderSizePixel = 1
-    jakeBtn.BorderColor3 = Color3.fromRGB(255,200,0)
-    jakeBtn.Text = "⚡ Загрузить JakeCSG-HUB"
-    jakeBtn.TextColor3 = Color3.fromRGB(255,255,255)
-    jakeBtn.TextScaled = true
-    jakeBtn.Font = Enum.Font.GothamBold
-    jakeBtn.Parent = main
-    jakeBtn.MouseButton1Click:Connect(function()
-        jakeBtn.Text = "⏳ Загрузка..."
-        jakeBtn.BackgroundColor3 = Color3.fromRGB(80,0,80)
-        loadJakeHub()
-        jakeBtn.Text = "✅ Загружено!"
-        jakeBtn.BackgroundColor3 = Color3.fromRGB(0,100,0)
-    end)
-
     -- СЛАЙДЕРЫ
-    createSlider("⚡ Speed", 0.70, 20, 300, settings.speed, function(v) settings.speed = v end)
-    createSlider("✈️ Fly Speed", 0.77, 10, 200, settings.flyspeed, function(v) settings.flyspeed = v end)
-    createSlider("🦘 Jump Power", 0.84, 50, 300, settings.jumppower, function(v) settings.jumppower = v end)
+    createSlider("⚡ Speed", 0.63, 20, 300, settings.speed, function(v) settings.speed = v end)
+    createSlider("✈️ Fly Speed", 0.70, 10, 200, settings.flyspeed, function(v) settings.flyspeed = v end)
+    createSlider("🦘 Jump Power", 0.77, 50, 300, settings.jumppower, function(v) settings.jumppower = v end)
 
     print("✅ Ryzen Hub загружен!")
 end
