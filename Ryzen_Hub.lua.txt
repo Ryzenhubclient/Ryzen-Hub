@@ -826,4 +826,134 @@ local function createRyzenHub()
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 28, 0, 28)
     closeBtn.Position = UDim2.new(1, -36, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60,
+    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleFrame
+    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+
+    local function createButton(text, yPos, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.85, 0, 0, 30)
+        btn.Position = UDim2.new(0.075, 0, yPos, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+        btn.BorderSizePixel = 0
+        btn.Text = text
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = mainFrame
+
+        local isActive = false
+        btn.MouseButton1Click:Connect(function()
+            isActive = not isActive
+            if isActive then
+                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
+                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
+            else
+                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
+            callback(isActive)
+            if text:find("ESP") then updateESP() end
+        end)
+        return btn
+    end
+
+    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0.85, 0, 0, 30)
+        frame.Position = UDim2.new(0.075, 0, yPos, 0)
+        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+        frame.BorderSizePixel = 0
+        frame.Parent = mainFrame
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.4, 0, 1, 0)
+        label.Position = UDim2.new(0.02, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.Parent = frame
+
+        local slider = Instance.new("TextButton")
+        slider.Size = UDim2.new(0.4, 0, 0.6, 0)
+        slider.Position = UDim2.new(0.45, 0, 0.2, 0)
+        slider.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+        slider.BorderSizePixel = 0
+        slider.Text = tostring(defaultVal)
+        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
+        slider.TextScaled = true
+        slider.Font = Enum.Font.Gotham
+        slider.Parent = frame
+
+        local value = defaultVal
+        slider.MouseButton1Click:Connect(function()
+            local newVal = value + 10
+            if newVal > maxVal then newVal = minVal end
+            value = newVal
+            slider.Text = tostring(value)
+            callback(value)
+        end)
+        return slider
+    end
+
+    -- КНОПКИ
+    createButton("👁️ ESP (ВКЛ)", 0.10, function(state)
+        toggles.esp = state
+        updateESP()
+    end)
+    createButton("🔴 Murderer", 0.17, function(state) 
+        toggles.showMurderer = state 
+    end)
+    createButton("🟢 Sheriff", 0.24, function(state) 
+        toggles.showSheriff = state 
+    end)
+    createButton("⚪ Innocent", 0.31, function(state) 
+        toggles.showInnocent = state 
+    end)
+    createButton("🎯 Trigger Bot", 0.38, toggleTriggerBot)
+    createButton("🐇 Bunny Hop", 0.45, toggleBunnyHop)
+    createButton("🦘 Super Jump", 0.52, toggleJump)
+    createButton("🌀 Noclip", 0.59, toggleNoclip)
+    createButton("📍 Teleport", 0.66, toggleTeleport)
+    createButton("✈️ Fly", 0.73, toggleFly)
+    createButton("🔫 Забрать оружие", 0.80, toggleAutoCollectGun)
+    createButton("💣 Bomb Mode [G]", 0.87, toggleBombMode)
+    createButton("🔫 Shot Murderer [H]", 0.94, toggleShotMurderer)
+    createButton("🍆 Дрочка", 1.01, toggleMasturbate)
+    createButton("👥 Список игроков", 1.08, function()
+        togglePlayerList()
+    end)
+
+    -- СЛАЙДЕРЫ
+    createSlider("🐇 Bunny Hop Speed", 1.15, 20, 300, settings.bunnyhop, function(val)
+        settings.bunnyhop = val
+    end)
+    createSlider("✈️ Fly Speed", 1.22, 10, 200, settings.flyspeed, function(val)
+        settings.flyspeed = val
+    end)
+    createSlider("🦘 Jump Power", 1.29, 50, 300, settings.jumppower, function(val)
+        settings.jumppower = val
+    end)
+
+    print("✅ Ryzen Hub загружен!")
+end
+
+-- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
+            game.CoreGui.RyzenHubGUI:Destroy()
+        else
+            createRyzenHub()
+        end
+    end
+end)
+
+createRyzenHub()
