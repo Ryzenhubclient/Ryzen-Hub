@@ -1,4 +1,4 @@
--- RYZEN HUB - MM2 ПОЛНАЯ ВЕРСИЯ
+-- RYZEN HUB - РАБОЧАЯ ВЕРСИЯ
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -7,7 +7,6 @@ local settings = {
     flyspeed = 50,
     jumppower = 120,
     spinSpeed = 10,
-    weatherType = "Sunny",
 }
 
 local toggles = {
@@ -27,21 +26,14 @@ local toggles = {
     fling = false,
     bombMode = false,
     shotMurderer = false,
-    fakeRoblox = false,
-    headless = false,
-    customClouds = false,
-    customWeather = false,
     masturbate = false,
 }
 
-local playerListGui = nil
 local espObjects = {}
 local fpsLabel = nil
 local bombActive = false
 local bombTimer = 0
 local bombPart = nil
-local fakeNameLabel = nil
-local clouds = {}
 
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
 local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
@@ -65,201 +57,11 @@ local function toggleMasturbate(state)
         end)
     else
         print("🍆 Режим дрочки выключен.")
-        if masturbateConnection then
-            masturbateConnection:Disconnect()
-            masturbateConnection = nil
-        end
+        if masturbateConnection then masturbateConnection:Disconnect() end
         if player.Character and player.Character:FindFirstChild("Right Arm") then
             player.Character["Right Arm"].CFrame = player.Character["Right Arm"].CFrame * CFrame.new(0, 0, 0)
         end
     end
-end
-
--- ===== ВИЗУАЛ: FAKE ROBLOX =====
-local function toggleFakeRoblox(state)
-    toggles.fakeRoblox = state
-    if state then
-        if not fakeNameLabel then
-            local gui = Instance.new("ScreenGui")
-            gui.Name = "FakeRobloxGUI"
-            gui.Parent = game.CoreGui
-            fakeNameLabel = Instance.new("TextLabel")
-            fakeNameLabel.Size = UDim2.new(0, 200, 0, 30)
-            fakeNameLabel.Position = UDim2.new(0, 10, 0, 10)
-            fakeNameLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            fakeNameLabel.BackgroundTransparency = 0.5
-            fakeNameLabel.BorderSizePixel = 0
-            fakeNameLabel.Text = "ROBLOX | " .. player.Name
-            fakeNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-            fakeNameLabel.TextScaled = true
-            fakeNameLabel.Font = Enum.Font.GothamBold
-            fakeNameLabel.Parent = gui
-        end
-    else
-        if fakeNameLabel then
-            fakeNameLabel.Parent:Destroy()
-            fakeNameLabel = nil
-        end
-    end
-end
-
--- ===== ВИЗУАЛ: HEADLESS =====
-local function toggleHeadless(state)
-    toggles.headless = state
-    if state then
-        if player.Character and player.Character:FindFirstChild("Head") then
-            player.Character.Head.Transparency = 1
-        end
-        player.CharacterAdded:Connect(function(char)
-            if toggles.headless then
-                task.wait(0.5)
-                if char and char:FindFirstChild("Head") then
-                    char.Head.Transparency = 1
-                end
-            end
-        end)
-    else
-        if player.Character and player.Character:FindFirstChild("Head") then
-            player.Character.Head.Transparency = 0
-        end
-    end
-end
-
--- ===== ВИЗУАЛ: КАСТОМНЫЕ ОБЛАКА =====
-local function createCustomClouds()
-    for i = 1, 10 do
-        local cloud = Instance.new("Part")
-        cloud.Size = Vector3.new(math.random(20, 50), math.random(3, 8), math.random(20, 50))
-        cloud.Position = Vector3.new(math.random(-200, 200), math.random(100, 200), math.random(-200, 200))
-        cloud.BrickColor = BrickColor.new("White")
-        cloud.Material = Enum.Material.Neon
-        cloud.Anchored = true
-        cloud.CanCollide = false
-        cloud.Transparency = 0.3
-        cloud.Parent = workspace
-        table.insert(clouds, cloud)
-    end
-end
-
-local function removeCustomClouds()
-    for _, cloud in ipairs(clouds) do
-        if cloud and cloud.Parent then
-            cloud:Destroy()
-        end
-    end
-    clouds = {}
-end
-
-local function toggleCustomClouds(state)
-    toggles.customClouds = state
-    if state then
-        removeCustomClouds()
-        createCustomClouds()
-    else
-        removeCustomClouds()
-    end
-end
-
--- ===== ВИЗУАЛ: ПОГОДА =====
-local function toggleCustomWeather(state)
-    toggles.customWeather = state
-    if state then
-        local lighting = game:GetService("Lighting")
-        if settings.weatherType == "Rain" then
-            lighting.ClockTime = 12
-            lighting.Brightness = 0.5
-            game:GetService("Workspace").Terrain.WaterWaveSize = 0.5
-            game:GetService("Workspace").Terrain.WaterWaveSpeed = 0.5
-        elseif settings.weatherType == "Foggy" then
-            lighting.FogEnd = 50
-            lighting.FogColor = Color3.fromRGB(150, 150, 150)
-        elseif settings.weatherType == "Night" then
-            lighting.ClockTime = 0
-            lighting.Brightness = 0.2
-        else
-            lighting.ClockTime = 14
-            lighting.Brightness = 1
-            lighting.FogEnd = 1000
-        end
-    else
-        local lighting = game:GetService("Lighting")
-        lighting.ClockTime = 14
-        lighting.Brightness = 1
-        lighting.FogEnd = 1000
-        lighting.FogColor = Color3.fromRGB(255, 255, 255)
-        game:GetService("Workspace").Terrain.WaterWaveSize = 0
-        game:GetService("Workspace").Terrain.WaterWaveSpeed = 0
-    end
-end
-
--- ===== МИНИ-МЕНЮ ИГРОКОВ =====
-local function togglePlayerList()
-    if playerListGui then
-        playerListGui:Destroy()
-        playerListGui = nil
-        return
-    end
-
-    playerListGui = Instance.new("ScreenGui")
-    playerListGui.Name = "PlayerList"
-    playerListGui.Parent = game.CoreGui
-
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 200, 0, 300)
-    frame.Position = UDim2.new(0.7, 0, 0.3, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.Parent = playerListGui
-
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundTransparency = 1
-    title.Text = "ИГРОКИ"
-    title.TextColor3 = Color3.fromRGB(255, 70, 70)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = frame
-
-    local list = Instance.new("ScrollingFrame")
-    list.Size = UDim2.new(1, 0, 1, -30)
-    list.Position = UDim2.new(0, 0, 0, 30)
-    list.BackgroundTransparency = 1
-    list.Parent = frame
-
-    local function updateList()
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-
-        local yPos = 0
-        for _, plr in ipairs(game.Players:GetPlayers()) do
-            if plr ~= player then
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(1, 0, 0, 30)
-                btn.Position = UDim2.new(0, 0, 0, yPos)
-                btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
-                btn.BorderSizePixel = 0
-                btn.Text = plr.Name
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                btn.TextScaled = true
-                btn.Font = Enum.Font.Gotham
-                btn.Parent = list
-
-                btn.MouseButton1Click:Connect(function()
-                    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                        plr.Character.HumanoidRootPart.CFrame = CFrame.new(0, -500, 0)
-                        print("🚀 Игрок " .. plr.Name .. " выкинут за карту!")
-                    end
-                end)
-                yPos = yPos + 30
-            end
-        end
-    end
-
-    updateList()
-    game.Players.PlayerAdded:Connect(updateList)
-    game.Players.PlayerRemoving:Connect(updateList)
 end
 
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
@@ -365,9 +167,7 @@ local function toggleTriggerBot(state)
             if target then
                 player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, target.Character.HumanoidRootPart.Position)
                 for _, tool in ipairs(player.Character:GetChildren()) do
-                    if tool:IsA("Tool") then
-                        tool:Activate()
-                    end
+                    if tool:IsA("Tool") then tool:Activate() end
                 end
                 task.wait(0.1)
                 if target.Character and target.Character:FindFirstChild("Humanoid") and target.Character.Humanoid.Health > 0 then
@@ -384,7 +184,7 @@ end
 local function toggleShotMurderer(state)
     toggles.shotMurderer = state
     if state then
-        print("🔫 Режим убийства мардера включён! Нажмите H, чтобы убить мардера.")
+        print("🔫 Нажмите H, чтобы убить мардера.")
     else
         print("🔫 Режим убийства мардера выключен.")
     end
@@ -479,7 +279,7 @@ end
 local function toggleBombMode(state)
     toggles.bombMode = state
     if state then
-        print("💣 Режим бомбы включён! Нажмите G, чтобы установить бомбу.")
+        print("💣 Нажмите G, чтобы установить/обезвредить бомбу.")
     else
         print("💣 Режим бомбы выключен.")
         if bombPart then
@@ -518,44 +318,26 @@ local function plantBomb()
 
     bombActive = true
     bombTimer = 5
-    print("💣 Бомба установлена! Взрыв через 5 секунд! 🔥")
+    print("💣 Бомба установлена! Взрыв через 5 секунд!")
 
     spawn(function()
         while bombActive and bombTimer > 0 do
             wait(1)
             bombTimer = bombTimer - 1
             if bombTimer > 0 then
-                print("⏱️ " .. bombTimer .. " секунд до взрыва!")
+                print("⏱️ " .. bombTimer .. " сек.")
                 if bombPart then
                     bombPart.BrickColor = bombTimer % 2 == 0 and BrickColor.new("Really red") or BrickColor.new("Bright red")
                 end
             end
         end
         if bombActive and bombPart then
-            print("💥 БОМБА ВЗОРВАЛАСЬ! 💥")
+            print("💥 ВЗРЫВ!")
             local explosion = Instance.new("Explosion")
             explosion.Position = bombPart.Position
             explosion.BlastRadius = 25
             explosion.BlastDamage = 100
             explosion.Parent = workspace
-
-            for i = 1, 20 do
-                local spark = Instance.new("Part")
-                spark.Size = Vector3.new(0.5, 0.5, 0.5)
-                spark.BrickColor = BrickColor.new("Gold")
-                spark.Material = Enum.Material.Neon
-                spark.Position = bombPart.Position + Vector3.new(math.random(-10, 10), math.random(-5, 15), math.random(-10, 10))
-                spark.Anchored = true
-                spark.CanCollide = false
-                spark.Parent = workspace
-                spark.Touched:Connect(function(hit)
-                    if hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
-                        hit.Parent.Humanoid.Health = 0
-                    end
-                end)
-                game:GetService("Debris"):AddItem(spark, 2)
-            end
-
             bombPart:Destroy()
             bombPart = nil
             bombActive = false
@@ -575,11 +357,11 @@ local function defuseBomb()
 
     local dist = (bombPart.Position - character.HumanoidRootPart.Position).Magnitude
     if dist > 10 then
-        print("❌ Вы слишком далеко от бомбы!")
+        print("❌ Вы слишком далеко!")
         return
     end
 
-    print("🔧 Обезвреживание бомбы...")
+    print("🔧 Обезвреживание...")
     wait(2)
 
     if bombActive and bombPart then
@@ -594,17 +376,11 @@ end
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.G then
         if toggles.bombMode then
-            if bombActive then
-                defuseBomb()
-            else
-                plantBomb()
-            end
+            if bombActive then defuseBomb() else plantBomb() end
         end
     end
     if input.KeyCode == Enum.KeyCode.H then
-        if toggles.shotMurderer then
-            killMurderer()
-        end
+        if toggles.shotMurderer then killMurderer() end
     end
 end)
 
@@ -614,50 +390,6 @@ local function toggleJump(state)
     if player.Character and player.Character:FindFirstChild("Humanoid") then
         player.Character.Humanoid.JumpPower = state and settings.jumppower or 50
     end
-end
-
-local function enableNoclip()
-    if noclipConnection then noclipConnection:Disconnect() end
-    noclipActive = true
-    noclipStartTime = tick()
-    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
-        if not noclipActive then return end
-        if tick() - noclipStartTime >= 86400 then
-            disableNoclip()
-            print("⏰ Noclip отключён (24 часа)")
-            return
-        end
-        if player.Character then
-            for _, part in ipairs(player.Character:GetChildren()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end
-    end)
-    player.CharacterAdded:Connect(function()
-        if noclipActive then
-            task.wait(0.5)
-            if player.Character then
-                for _, part in ipairs(player.Character:GetChildren()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-            end
-        end
-    end)
-end
-
-local function disableNoclip()
-    noclipActive = false
-    if noclipConnection then noclipConnection:Disconnect() end
-    if player.Character then
-        for _, part in ipairs(player.Character:GetChildren()) do
-            if part:IsA("BasePart") then part.CanCollide = true end
-        end
-    end
-end
-
-local function toggleNoclip(state)
-    if state then enableNoclip() else disableNoclip() end
-    toggles.noclip = state
 end
 
 local function toggleTeleport(state)
@@ -700,47 +432,6 @@ local function toggleFly(state)
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.PlatformStand = false
         end
-    end
-end
-
-local function autoCollectGunFromSheriff()
-    local gunFound, gunPos = nil, nil
-    for _, item in ipairs(workspace:GetDescendants()) do
-        if item:IsA("Tool") then
-            local name = item.Name:lower()
-            if name:find("gun") or name:find("pistol") or name:find("revolver") then
-                if item.Parent ~= player.Character and item.Parent ~= player.Backpack then
-                    local sheriffAlive = false
-                    for _, plr in ipairs(game.Players:GetPlayers()) do
-                        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 then
-                            if getPlayerRole(plr) == "Sheriff" then sheriffAlive = true break end
-                        end
-                    end
-                    if not sheriffAlive then
-                        gunFound = item
-                        gunPos = item.Position
-                        break
-                    end
-                end
-            end
-        end
-    end
-    if gunFound and gunPos and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(gunPos + Vector3.new(0, 2, 0))
-        task.wait(0.3)
-        gunFound.Parent = player.Character
-        print("🔫 Оружие шерифа подобрано!")
-        return true
-    end
-    return false
-end
-
-local function toggleAutoCollectGun(state)
-    toggles.autoCollectGun = state
-    if state then
-        game:GetService("RunService").Heartbeat:Connect(function()
-            if toggles.autoCollectGun then autoCollectGunFromSheriff() end
-        end)
     end
 end
 
@@ -789,8 +480,8 @@ local function createRyzenHub()
     screenGui.ResetOnSpawn = false
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 450, 0, 650)
-    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -325)
+    mainFrame.Size = UDim2.new(0, 450, 0, 550)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -275)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
     mainFrame.BackgroundTransparency = 0.15
     mainFrame.BorderSizePixel = 0
@@ -801,7 +492,6 @@ local function createRyzenHub()
     -- Заголовок
     local titleFrame = Instance.new("Frame")
     titleFrame.Size = UDim2.new(1, 0, 0, 45)
-    titleFrame.Position = UDim2.new(0, 0, 0, 0)
     titleFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
     titleFrame.BorderSizePixel = 0
     titleFrame.Parent = mainFrame
@@ -908,37 +598,56 @@ local function createRyzenHub()
         toggles.esp = state
         updateESP()
     end)
-    createButton("🔴 Murderer", 0.17, function(state) 
-        toggles.showMurderer = state 
-    end)
-    createButton("🟢 Sheriff", 0.24, function(state) 
-        toggles.showSheriff = state 
-    end)
-    createButton("⚪ Innocent", 0.31, function(state) 
-        toggles.showInnocent = state 
-    end)
+    createButton("🔴 Murderer", 0.17, function(state) toggles.showMurderer = state end)
+    createButton("🟢 Sheriff", 0.24, function(state) toggles.showSheriff = state end)
+    createButton("⚪ Innocent", 0.31, function(state) toggles.showInnocent = state end)
     createButton("🎯 Trigger Bot", 0.38, toggleTriggerBot)
     createButton("🐇 Bunny Hop", 0.45, toggleBunnyHop)
     createButton("🦘 Super Jump", 0.52, toggleJump)
-    createButton("🌀 Noclip", 0.59, toggleNoclip)
+    createButton("🌀 Noclip", 0.59, function(state)
+        if state then
+            noclipActive = true
+            noclipStartTime = tick()
+            if noclipConnection then noclipConnection:Disconnect() end
+            noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+                if not noclipActive then return end
+                if tick() - noclipStartTime >= 86400 then
+                    noclipActive = false
+                    if noclipConnection then noclipConnection:Disconnect() end
+                    print("⏰ Noclip отключён")
+                    return
+                end
+                if player.Character then
+                    for _, part in ipairs(player.Character:GetChildren()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end)
+        else
+            noclipActive = false
+            if noclipConnection then noclipConnection:Disconnect() end
+            if player.Character then
+                for _, part in ipairs(player.Character:GetChildren()) do
+                    if part:IsA("BasePart") then part.CanCollide = true end
+                end
+            end
+        end
+        toggles.noclip = state
+    end)
     createButton("📍 Teleport", 0.66, toggleTeleport)
     createButton("✈️ Fly", 0.73, toggleFly)
-    createButton("🔫 Забрать оружие", 0.80, toggleAutoCollectGun)
-    createButton("💣 Bomb Mode [G]", 0.87, toggleBombMode)
-    createButton("🔫 Shot Murderer [H]", 0.94, toggleShotMurderer)
-    createButton("🍆 Дрочка", 1.01, toggleMasturbate)
-    createButton("👥 Список игроков", 1.08, function()
-        togglePlayerList()
-    end)
+    createButton("💣 Bomb Mode [G]", 0.80, toggleBombMode)
+    createButton("🔫 Shot Murderer [H]", 0.87, toggleShotMurderer)
+    createButton("🍆 Дрочка", 0.94, toggleMasturbate)
 
     -- СЛАЙДЕРЫ
-    createSlider("🐇 Bunny Hop Speed", 1.15, 20, 300, settings.bunnyhop, function(val)
+    createSlider("🐇 Bunny Hop Speed", 1.01, 20, 300, settings.bunnyhop, function(val)
         settings.bunnyhop = val
     end)
-    createSlider("✈️ Fly Speed", 1.22, 10, 200, settings.flyspeed, function(val)
+    createSlider("✈️ Fly Speed", 1.08, 10, 200, settings.flyspeed, function(val)
         settings.flyspeed = val
     end)
-    createSlider("🦘 Jump Power", 1.29, 50, 300, settings.jumppower, function(val)
+    createSlider("🦘 Jump Power", 1.15, 50, 300, settings.jumppower, function(val)
         settings.jumppower = val
     end)
 
