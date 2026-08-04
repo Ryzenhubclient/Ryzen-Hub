@@ -1,4 +1,4 @@
--- RYZEN HUB - ТОЧНАЯ КОПИЯ KITAGAWAHUB C BUNNY HOP
+-- RYZEN HUB - MM2 ПОЛНАЯ ВЕРСИЯ С ДРОЧКОЙ
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
@@ -7,10 +7,14 @@ local settings = {
     flyspeed = 50,
     jumppower = 120,
     spinSpeed = 10,
+    weatherType = "Sunny",
 }
 
 local toggles = {
     esp = false,
+    showMurderer = true,
+    showSheriff = true,
+    showInnocent = false,
     triggerbot = false,
     bunnyhop = false,
     jump = false,
@@ -21,15 +25,181 @@ local toggles = {
     autoCollectGun = false,
     spinBot = false,
     fling = false,
+    bombMode = false,
+    shotMurderer = false,
+    fakeRoblox = false,
+    headless = false,
+    customClouds = false,
+    customWeather = false,
+    masturbate = false, -- Дрочка
 }
 
 local playerListGui = nil
 local espObjects = {}
 local fpsLabel = nil
+local bombActive = false
+local bombTimer = 0
+local bombPart = nil
+local fakeNameLabel = nil
+local clouds = {}
 
 -- Подключения
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
 local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
+local masturbateConnection = nil
+
+-- ===== ДРОЧКА (МАСТУРБАЦИЯ) =====
+local function toggleMasturbate(state)
+    toggles.masturbate = state
+    if state then
+        print("🍆 Режим дрочки включён!")
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            local animTrack = player.Character.Humanoid:LoadAnimation(Instance.new("Animation"))
+            -- Создаём анимацию движения руки
+            masturbateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                if not toggles.masturbate then
+                    if masturbateConnection then masturbateConnection:Disconnect() end
+                    return
+                end
+                if player.Character and player.Character:FindFirstChild("Right Arm") then
+                    local arm = player.Character["Right Arm"]
+                    local time = tick()
+                    -- Движение руки вверх-вниз (дрочка)
+                    local offset = math.sin(time * 8) * 0.3
+                    arm.CFrame = arm.CFrame * CFrame.new(0, offset, 0)
+                end
+            end)
+        end
+    else
+        print("🍆 Режим дрочки выключен.")
+        if masturbateConnection then
+            masturbateConnection:Disconnect()
+            masturbateConnection = nil
+        end
+        -- Возвращаем руку в нормальное положение
+        if player.Character and player.Character:FindFirstChild("Right Arm") then
+            player.Character["Right Arm"].CFrame = player.Character["Right Arm"].CFrame * CFrame.new(0, 0, 0)
+        end
+    end
+end
+
+-- ===== ВИЗУАЛ: FAKE ROBLOX =====
+local function toggleFakeRoblox(state)
+    toggles.fakeRoblox = state
+    if state then
+        if not fakeNameLabel then
+            local gui = Instance.new("ScreenGui")
+            gui.Name = "FakeRobloxGUI"
+            gui.Parent = game.CoreGui
+            
+            fakeNameLabel = Instance.new("TextLabel")
+            fakeNameLabel.Size = UDim2.new(0, 200, 0, 30)
+            fakeNameLabel.Position = UDim2.new(0, 10, 0, 10)
+            fakeNameLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            fakeNameLabel.BackgroundTransparency = 0.5
+            fakeNameLabel.BorderSizePixel = 0
+            fakeNameLabel.Text = "ROBLOX | " .. player.Name
+            fakeNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            fakeNameLabel.TextScaled = true
+            fakeNameLabel.Font = Enum.Font.GothamBold
+            fakeNameLabel.Parent = gui
+        end
+    else
+        if fakeNameLabel then
+            fakeNameLabel.Parent:Destroy()
+            fakeNameLabel = nil
+        end
+    end
+end
+
+-- ===== ВИЗУАЛ: HEADLESS =====
+local function toggleHeadless(state)
+    toggles.headless = state
+    if state then
+        if player.Character and player.Character:FindFirstChild("Head") then
+            player.Character.Head.Transparency = 1
+        end
+        player.CharacterAdded:Connect(function(char)
+            if toggles.headless then
+                task.wait(0.5)
+                if char and char:FindFirstChild("Head") then
+                    char.Head.Transparency = 1
+                end
+            end
+        end)
+    else
+        if player.Character and player.Character:FindFirstChild("Head") then
+            player.Character.Head.Transparency = 0
+        end
+    end
+end
+
+-- ===== ВИЗУАЛ: КАСТОМНЫЕ ОБЛАКА =====
+local function createCustomClouds()
+    for i = 1, 10 do
+        local cloud = Instance.new("Part")
+        cloud.Size = Vector3.new(math.random(20, 50), math.random(3, 8), math.random(20, 50))
+        cloud.Position = Vector3.new(math.random(-200, 200), math.random(100, 200), math.random(-200, 200))
+        cloud.BrickColor = BrickColor.new("White")
+        cloud.Material = Enum.Material.Neon
+        cloud.Anchored = true
+        cloud.CanCollide = false
+        cloud.Transparency = 0.3
+        cloud.Parent = workspace
+        table.insert(clouds, cloud)
+    end
+end
+
+local function removeCustomClouds()
+    for _, cloud in ipairs(clouds) do
+        if cloud and cloud.Parent then
+            cloud:Destroy()
+        end
+    end
+    clouds = {}
+end
+
+local function toggleCustomClouds(state)
+    toggles.customClouds = state
+    if state then
+        removeCustomClouds()
+        createCustomClouds()
+    else
+        removeCustomClouds()
+    end
+end
+
+-- ===== ВИЗУАЛ: ПОГОДА =====
+local function toggleCustomWeather(state)
+    toggles.customWeather = state
+    if state then
+        local lighting = game:GetService("Lighting")
+        if settings.weatherType == "Rain" then
+            lighting.ClockTime = 12
+            lighting.Brightness = 0.5
+            game:GetService("Workspace").Terrain.WaterWaveSize = 0.5
+            game:GetService("Workspace").Terrain.WaterWaveSpeed = 0.5
+        elseif settings.weatherType == "Foggy" then
+            lighting.FogEnd = 50
+            lighting.FogColor = Color3.fromRGB(150, 150, 150)
+        elseif settings.weatherType == "Night" then
+            lighting.ClockTime = 0
+            lighting.Brightness = 0.2
+        else -- Sunny
+            lighting.ClockTime = 14
+            lighting.Brightness = 1
+            lighting.FogEnd = 1000
+        end
+    else
+        local lighting = game:GetService("Lighting")
+        lighting.ClockTime = 14
+        lighting.Brightness = 1
+        lighting.FogEnd = 1000
+        lighting.FogColor = Color3.fromRGB(255, 255, 255)
+        game:GetService("Workspace").Terrain.WaterWaveSize = 0
+        game:GetService("Workspace").Terrain.WaterWaveSpeed = 0
+    end
+end
 
 -- ===== МИНИ-МЕНЮ ИГРОКОВ =====
 local function togglePlayerList()
@@ -138,6 +308,12 @@ local function updateESP()
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr == player or not plr.Character or not plr.Character:FindFirstChild("Head") then continue end
         local role = getPlayerRole(plr)
+        local show = false
+        if role == "Murderer" and toggles.showMurderer then show = true end
+        if role == "Sheriff" and toggles.showSheriff then show = true end
+        if role == "Innocent" and toggles.showInnocent then show = true end
+        if not show then continue end
+        
         local color = role == "Murderer" and Color3.fromRGB(255, 0, 0) or 
                      role == "Sheriff" and Color3.fromRGB(0, 100, 255) or 
                      Color3.fromRGB(0, 255, 0)
@@ -171,7 +347,7 @@ local function updateESP()
     end
 end
 
--- ===== TRIGGER BOT =====
+-- ===== TRIGGER BOT (100% УБИВАЕТ МАРДЕРА) =====
 local function toggleTriggerBot(state)
     toggles.triggerbot = state
     if state then
@@ -198,13 +374,45 @@ local function toggleTriggerBot(state)
             if target then
                 player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position, target.Character.HumanoidRootPart.Position)
                 for _, tool in ipairs(player.Character:GetChildren()) do
-                    if tool:IsA("Tool") then tool:Activate() end
+                    if tool:IsA("Tool") then
+                        tool:Activate()
+                    end
+                end
+                task.wait(0.1)
+                if target.Character and target.Character:FindFirstChild("Humanoid") and target.Character.Humanoid.Health > 0 then
+                    target.Character.Humanoid.Health = 0
                 end
             end
         end)
     else
         if triggerbotConnection then triggerbotConnection:Disconnect() end
     end
+end
+
+-- ===== SHOT MURDERER =====
+local function toggleShotMurderer(state)
+    toggles.shotMurderer = state
+    if state then
+        print("🔫 Режим убийства мардера включён! Нажмите H, чтобы убить мардера.")
+    else
+        print("🔫 Режим убийства мардера выключен.")
+    end
+end
+
+local function killMurderer()
+    if not toggles.shotMurderer then return end
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            if getPlayerRole(plr) == "Murderer" then
+                if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+                    plr.Character.Humanoid.Health = 0
+                    print("🔫 Мардер убит!")
+                    return
+                end
+            end
+        end
+    end
+    print("❌ Мардер не найден!")
 end
 
 -- ===== BUNNY HOP =====
@@ -275,6 +483,139 @@ local function toggleFling(state)
         if flingConnection then flingConnection:Disconnect() end
     end
 end
+
+-- ===== БОМБА =====
+local function toggleBombMode(state)
+    toggles.bombMode = state
+    if state then
+        print("💣 Режим бомбы включён! Нажмите G, чтобы установить бомбу.")
+    else
+        print("💣 Режим бомбы выключен.")
+        if bombPart then
+            bombPart:Destroy()
+            bombPart = nil
+            bombActive = false
+        end
+    end
+end
+
+local function plantBomb()
+    if not toggles.bombMode then return end
+    if bombActive then
+        print("⚠️ Бомба уже установлена!")
+        return
+    end
+    
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    bombPart = Instance.new("Part")
+    bombPart.Name = "Bomb_MM2"
+    bombPart.Size = Vector3.new(2, 1, 2)
+    bombPart.BrickColor = BrickColor.new("Really red")
+    bombPart.Material = Enum.Material.Neon
+    bombPart.Position = character.HumanoidRootPart.Position + Vector3.new(0, 0, 5)
+    bombPart.Anchored = true
+    bombPart.CanCollide = false
+    bombPart.Parent = workspace
+    
+    local glow = Instance.new("PointLight")
+    glow.Color = Color3.fromRGB(255, 215, 0)
+    glow.Range = 10
+    glow.Brightness = 5
+    glow.Parent = bombPart
+    
+    bombActive = true
+    bombTimer = 5
+    print("💣 Бомба установлена! Взрыв через 5 секунд! 🔥")
+    
+    spawn(function()
+        while bombActive and bombTimer > 0 do
+            wait(1)
+            bombTimer = bombTimer - 1
+            if bombTimer > 0 then
+                print("⏱️ " .. bombTimer .. " секунд до взрыва!")
+                if bombPart then
+                    bombPart.BrickColor = bombTimer % 2 == 0 and BrickColor.new("Really red") or BrickColor.new("Bright red")
+                end
+            end
+        end
+        if bombActive and bombPart then
+            print("💥 БОМБА ВЗОРВАЛАСЬ! 💥")
+            local explosion = Instance.new("Explosion")
+            explosion.Position = bombPart.Position
+            explosion.BlastRadius = 25
+            explosion.BlastDamage = 100
+            explosion.Parent = workspace
+            
+            for i = 1, 20 do
+                local spark = Instance.new("Part")
+                spark.Size = Vector3.new(0.5, 0.5, 0.5)
+                spark.BrickColor = BrickColor.new("Gold")
+                spark.Material = Enum.Material.Neon
+                spark.Position = bombPart.Position + Vector3.new(math.random(-10, 10), math.random(-5, 15), math.random(-10, 10))
+                spark.Anchored = true
+                spark.CanCollide = false
+                spark.Parent = workspace
+                spark.Touched:Connect(function(hit)
+                    if hit.Parent and hit.Parent:FindFirstChild("Humanoid") then
+                        hit.Parent.Humanoid.Health = 0
+                    end
+                end)
+                game:GetService("Debris"):AddItem(spark, 2)
+            end
+            
+            bombPart:Destroy()
+            bombPart = nil
+            bombActive = false
+        end
+    end)
+end
+
+local function defuseBomb()
+    if not toggles.bombMode then return end
+    if not bombActive or not bombPart then
+        print("❌ Нет активной бомбы!")
+        return
+    end
+    
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local dist = (bombPart.Position - character.HumanoidRootPart.Position).Magnitude
+    if dist > 10 then
+        print("❌ Вы слишком далеко от бомбы!")
+        return
+    end
+    
+    print("🔧 Обезвреживание бомбы...")
+    wait(2)
+    
+    if bombActive and bombPart then
+        bombPart:Destroy()
+        bombPart = nil
+        bombActive = false
+        print("✅ Бомба обезврежена!")
+    end
+end
+
+-- Обработчики клавиш
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.G then
+        if toggles.bombMode then
+            if bombActive then
+                defuseBomb()
+            else
+                plantBomb()
+            end
+        end
+    end
+    if input.KeyCode == Enum.KeyCode.H then
+        if toggles.shotMurderer then
+            killMurderer()
+        end
+    end
+end)
 
 -- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
 local function toggleJump(state)
@@ -445,7 +786,7 @@ local function toggleFps(state)
     end
 end
 
--- ===== ГЛАВНОЕ МЕНЮ (ТОЧНАЯ КОПИЯ KITAGAWAHUB) =====
+-- ===== ГЛАВНОЕ МЕНЮ =====
 local function createRyzenHub()
     if game.CoreGui:FindFirstChild("RyzenHubGUI") then
         game.CoreGui.RyzenHubGUI:Destroy()
@@ -457,8 +798,8 @@ local function createRyzenHub()
     screenGui.ResetOnSpawn = false
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 450, 0, 500)
-    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
+    mainFrame.Size = UDim2.new(0, 450, 0, 650)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -325)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
     mainFrame.BackgroundTransparency = 0.15
     mainFrame.BorderSizePixel = 0
@@ -466,7 +807,7 @@ local function createRyzenHub()
     mainFrame.Draggable = true
     mainFrame.Parent = screenGui
 
-    -- Заголовок КАК В KITAGAWAHUB
+    -- Заголовок
     local titleFrame = Instance.new("Frame")
     titleFrame.Size = UDim2.new(1, 0, 0, 45)
     titleFrame.Position = UDim2.new(0, 0, 0, 0)
@@ -474,7 +815,6 @@ local function createRyzenHub()
     titleFrame.BorderSizePixel = 0
     titleFrame.Parent = mainFrame
 
-    -- Логотип Ryzen (вместо капучино)
     local logo = Instance.new("ImageLabel")
     logo.Size = UDim2.new(0, 35, 0, 35)
     logo.Position = UDim2.new(0.02, 0, 0.1, 0)
@@ -482,151 +822,7 @@ local function createRyzenHub()
     logo.Image = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/AMD_Ryzen_logo.svg/120px-AMD_Ryzen_logo.svg.png"
     logo.Parent = titleFrame
 
-    -- Название
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -50, 1, 0)
     title.Position = UDim2.new(0, 50, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "RYZEN HUB"
-    title.TextColor3 = Color3.fromRGB(255, 80, 80)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = titleFrame
-
-    -- Кнопка закрытия
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 28, 0, 28)
-    closeBtn.Position = UDim2.new(1, -36, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = titleFrame
-    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-
-    -- Функция создания кнопки (КАК В KITAGAWAHUB)
-    local function createButton(text, yPos, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85, 0, 0, 34)
-        btn.Position = UDim2.new(0.075, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        btn.BorderSizePixel = 0
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextScaled = true
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = mainFrame
-
-        local isActive = false
-        btn.MouseButton1Click:Connect(function()
-            isActive = not isActive
-            if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
-                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            end
-            callback(isActive)
-            if text:find("ESP") then updateESP() end
-        end)
-        return btn
-    end
-
-    -- Функция создания слайдера (КАК В KITAGAWAHUB)
-    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0.85, 0, 0, 30)
-        frame.Position = UDim2.new(0.075, 0, yPos, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-        frame.BorderSizePixel = 0
-        frame.Parent = mainFrame
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.4, 0, 1, 0)
-        label.Position = UDim2.new(0.02, 0, 0, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-
-        local slider = Instance.new("TextButton")
-        slider.Size = UDim2.new(0.4, 0, 0.6, 0)
-        slider.Position = UDim2.new(0.45, 0, 0.2, 0)
-        slider.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-        slider.BorderSizePixel = 0
-        slider.Text = tostring(defaultVal)
-        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
-        slider.TextScaled = true
-        slider.Font = Enum.Font.Gotham
-        slider.Parent = frame
-
-        local value = defaultVal
-        slider.MouseButton1Click:Connect(function()
-            local newVal = value + 10
-            if newVal > maxVal then newVal = minVal end
-            value = newVal
-            slider.Text = tostring(value)
-            callback(value)
-        end)
-        return slider
-    end
-
-    -- КНОПКИ (КАК В KITAGAWAHUB)
-    createButton("👁️ ESP (ВКЛ)", 0.12, function(state)
-        toggles.esp = state
-        updateESP()
-    end)
-    createButton("🔴 Murderer", 0.20, function(state) 
-        toggles.showMurderer = state 
-    end)
-    createButton("🟢 Sheriff", 0.28, function(state) 
-        toggles.showSheriff = state 
-    end)
-    createButton("⚪ Innocent", 0.36, function(state) 
-        toggles.showInnocent = state 
-    end)
-    createButton("🎯 Trigger Bot", 0.44, toggleTriggerBot)
-    createButton("🐇 Bunny Hop", 0.52, toggleBunnyHop)
-    createButton("🦘 Super Jump", 0.60, toggleJump)
-    createButton("🌀 Noclip", 0.68, toggleNoclip)
-    createButton("📍 Teleport", 0.76, toggleTeleport)
-    createButton("✈️ Fly", 0.84, toggleFly)
-    createButton("🔫 Забрать оружие", 0.92, toggleAutoCollectGun)
-
-    -- СЛАЙДЕРЫ (КАК В KITAGAWAHUB)
-    createSlider("🐇 Bunny Hop Speed", 1.00, 20, 300, settings.bunnyhop, function(val)
-        settings.bunnyhop = val
-        if toggles.bunnyhop and player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = val
-        end
-    end)
-    createSlider("✈️ Fly Speed", 1.08, 10, 200, settings.flyspeed, function(val)
-        settings.flyspeed = val
-    end)
-    createSlider("🦘 Jump Power", 1.16, 50, 300, settings.jumppower, function(val)
-        settings.jumppower = val
-        if toggles.jump and player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.JumpPower = val
-        end
-    end)
-
-    print("✅ Ryzen Hub загружен!")
-end
-
--- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
-game:GetService("UserInputService").InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        if game.CoreGui:FindFirstChild("RyzenHubGUI") then
-            game.CoreGui.RyzenHubGUI:Destroy()
-        else
-            createRyzenHub()
-        end
-    end
-end)
-
-createRyzenHub()
+    title.BackgroundTransparency =
