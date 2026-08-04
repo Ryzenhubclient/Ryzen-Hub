@@ -192,6 +192,76 @@ local function toggleCustomWeather(state)
     end
 end
 
+-- ===== МИНИ-МЕНЮ ИГРОКОВ =====
+local function togglePlayerList()
+    if playerListGui then
+        playerListGui:Destroy()
+        playerListGui = nil
+        return
+    end
+
+    playerListGui = Instance.new("ScreenGui")
+    playerListGui.Name = "PlayerList"
+    playerListGui.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 200, 0, 300)
+    frame.Position = UDim2.new(0.7, 0, 0.3, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 0
+    frame.Parent = playerListGui
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundTransparency = 1
+    title.Text = "ИГРОКИ"
+    title.TextColor3 = Color3.fromRGB(255, 70, 70)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+
+    local list = Instance.new("ScrollingFrame")
+    list.Size = UDim2.new(1, 0, 1, -30)
+    list.Position = UDim2.new(0, 0, 0, 30)
+    list.BackgroundTransparency = 1
+    list.Parent = frame
+
+    local function updateList()
+        for _, child in ipairs(list:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+
+        local yPos = 0
+        for _, plr in ipairs(game.Players:GetPlayers()) do
+            if plr ~= player then
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(1, 0, 0, 30)
+                btn.Position = UDim2.new(0, 0, 0, yPos)
+                btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+                btn.BorderSizePixel = 0
+                btn.Text = plr.Name
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                btn.TextScaled = true
+                btn.Font = Enum.Font.Gotham
+                btn.Parent = list
+
+                btn.MouseButton1Click:Connect(function()
+                    if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                        plr.Character.HumanoidRootPart.CFrame = CFrame.new(0, -500, 0)
+                        print("🚀 Игрок " .. plr.Name .. " выкинут за карту!")
+                    end
+                end)
+                yPos = yPos + 30
+            end
+        end
+    end
+
+    updateList()
+    game.Players.PlayerAdded:Connect(updateList)
+    game.Players.PlayerRemoving:Connect(updateList)
+end
+
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
 local function getPlayerRole(plr)
     if not plr or not plr.Character then return "Innocent" end
@@ -520,6 +590,24 @@ local function defuseBomb()
     end
 end
 
+-- Обработчики клавиш
+game:GetService("UserInputService").InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.G then
+        if toggles.bombMode then
+            if bombActive then
+                defuseBomb()
+            else
+                plantBomb()
+            end
+        end
+    end
+    if input.KeyCode == Enum.KeyCode.H then
+        if toggles.shotMurderer then
+            killMurderer()
+        end
+    end
+end)
+
 -- ===== ОСТАЛЬНЫЕ ФУНКЦИИ =====
 local function toggleJump(state)
     toggles.jump = state
@@ -738,78 +826,4 @@ local function createRyzenHub()
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 28, 0, 28)
     closeBtn.Position = UDim2.new(1, -36, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-    closeBtn.BorderSizePixel = 0
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = titleFrame
-    closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-
-    local function createButton(text, yPos, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85, 0, 0, 30)
-        btn.Position = UDim2.new(0.075, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-        btn.BorderSizePixel = 0
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextScaled = true
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = mainFrame
-
-        local isActive = false
-        btn.MouseButton1Click:Connect(function()
-            isActive = not isActive
-            if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
-                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            end
-            callback(isActive)
-            if text:find("ESP") then updateESP() end
-        end)
-        return btn
-    end
-
-    local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(0.85, 0, 0, 30)
-        frame.Position = UDim2.new(0.075, 0, yPos, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
-        frame.BorderSizePixel = 0
-        frame.Parent = mainFrame
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.4, 0, 1, 0)
-        label.Position = UDim2.new(0.02, 0, 0, 0)
-        label.BackgroundTransparency = 1
-        label.Text = text
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        label.TextScaled = true
-        label.Font = Enum.Font.Gotham
-        label.Parent = frame
-
-        local slider = Instance.new("TextButton")
-        slider.Size = UDim2.new(0.4, 0, 0.6, 0)
-        slider.Position = UDim2.new(0.45, 0, 0.2, 0)
-        slider.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
-        slider.BorderSizePixel = 0
-        slider.Text = tostring(defaultVal)
-        slider.TextColor3 = Color3.fromRGB(255, 255, 255)
-        slider.TextScaled = true
-        slider.Font = Enum.Font.Gotham
-        slider.Parent = frame
-
-        local value = defaultVal
-        slider.MouseButton1Click:Connect(function()
-            local newVal = value + 10
-            if newVal > maxVal then newVal = minVal end
-            value = newVal
-            slider.Text = tostring(value)
-            callback(value)
-        end)
-       
+    close
