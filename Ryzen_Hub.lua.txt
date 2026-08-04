@@ -826,4 +826,4 @@ local function createRyzenHub()
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 28, 0, 28)
     closeBtn.Position = UDim2.new(1, -36, 0, 8)
-    close
+    closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60,
