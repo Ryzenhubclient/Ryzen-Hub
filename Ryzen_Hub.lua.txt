@@ -1,133 +1,115 @@
--- RYZEN HUB - РАБОЧАЯ ВЕРСИЯ (ПОЛНАЯ)
-local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
+-- RYZEN HUB - МИНИМАЛЬНАЯ ВЕРСИЯ ДЛЯ XENO
+local plr = game.Players.LocalPlayer
+local mouse = plr:GetMouse()
 
--- ===== НАСТРОЙКИ =====
-local settings = {
-    speed = 100,
-    flyspeed = 50,
-    jumppower = 120,
-}
+-- Настройки
+local speed = 100
+local flySpeed = 50
+local jumpPower = 120
 
-local toggles = {
-    esp = false,
-    trigger = false,
-    speedglitch = false,
-    jump = false,
-    noclip = false,
-    teleport = false,
-    fly = false,
-    shot = false,
-}
+-- Состояния
+local espOn = false
+local triggerOn = false
+local speedOn = false
+local jumpOn = false
+local noclipOn = false
+local flyOn = false
+local teleOn = false
+local shotOn = false
 
-local espList = {}
-local gui = nil
+-- Список для ESP
+local espObjs = {}
 
--- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
-local function getRole(plr)
-    if not plr or not plr.Character then return "Innocent" end
-    for _, tool in ipairs(plr.Character:GetChildren()) do
-        if tool:IsA("Tool") then
-            local n = tool.Name:lower()
+-- Функция роли
+local function getRole(p)
+    if not p or not p.Character then return "Innocent" end
+    for _, t in ipairs(p.Character:GetChildren()) do
+        if t:IsA("Tool") then
+            local n = t.Name:lower()
             if n:find("knife") or n:find("dagger") then return "Murderer" end
             if n:find("gun") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
         end
     end
-    if plr.Backpack then
-        for _, tool in ipairs(plr.Backpack:GetChildren()) do
-            local n = tool.Name:lower()
-            if n:find("knife") or n:find("dagger") then return "Murderer" end
-            if n:find("gun") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+    if p.Backpack then
+        for _, t in ipairs(p.Backpack:GetChildren()) do
+            if t:IsA("Tool") then
+                local n = t.Name:lower()
+                if n:find("knife") or n:find("dagger") then return "Murderer" end
+                if n:find("gun") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+            end
         end
     end
     return "Innocent"
 end
 
--- ===== ESP =====
+-- ESP
 local function updateESP()
-    for _, obj in ipairs(espList) do
-        pcall(function() obj:Destroy() end)
+    for _, o in ipairs(espObjs) do
+        pcall(function() o:Destroy() end)
     end
-    espList = {}
-    if not toggles.esp then return end
-
-    for _, plr in ipairs(game.Players:GetPlayers()) do
-        if plr == player then continue end
-        if not plr.Character or not plr.Character:FindFirstChild("Head") then continue end
-        local role = getRole(plr)
+    espObjs = {}
+    if not espOn then return end
+    for _, p in ipairs(game.Players:GetPlayers()) do
+        if p == plr then continue end
+        if not p.Character or not p.Character:FindFirstChild("Head") then continue end
+        local role = getRole(p)
         local col = role == "Murderer" and Color3.fromRGB(255,0,0) or role == "Sheriff" and Color3.fromRGB(0,100,255) or Color3.fromRGB(0,255,0)
-        local esp = Instance.new("BillboardGui")
-        esp.Size = UDim2.new(0, 150, 0, 40)
-        esp.AlwaysOnTop = true
-        esp.Parent = plr.Character.Head
+        local bill = Instance.new("BillboardGui")
+        bill.Size = UDim2.new(0,150,0,40)
+        bill.AlwaysOnTop = true
+        bill.Parent = p.Character.Head
         local txt = Instance.new("TextLabel")
         txt.Size = UDim2.new(1,0,1,0)
         txt.BackgroundTransparency = 1
-        txt.Text = plr.Name .. " [" .. role .. "]"
+        txt.Text = p.Name .. " [" .. role .. "]"
         txt.TextColor3 = col
         txt.TextScaled = true
         txt.Font = Enum.Font.GothamBold
-        txt.Parent = esp
-        table.insert(espList, esp)
-        table.insert(espList, txt)
+        txt.Parent = bill
+        table.insert(espObjs, bill)
+        table.insert(espObjs, txt)
         local hl = Instance.new("Highlight")
-        hl.Adornee = plr.Character
+        hl.Adornee = p.Character
         hl.FillColor = col
         hl.FillTransparency = 0.5
-        hl.Parent = plr.Character
-        table.insert(espList, hl)
+        hl.Parent = p.Character
+        table.insert(espObjs, hl)
     end
 end
 
--- ===== TRIGGER BOT =====
-local triggerConn = nil
+-- Trigger Bot
+local trigConn = nil
 local function toggleTrigger(state)
-    toggles.trigger = state
+    triggerOn = state
     if state then
-        if triggerConn then triggerConn:Disconnect() end
-        triggerConn = game:GetService("RunService").Heartbeat:Connect(function()
-            if not toggles.trigger then return end
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
-                    if getRole(plr) == "Murderer" then
-                        pcall(function() plr.Character.Humanoid.Health = 0 end)
+        if trigConn then trigConn:Disconnect() end
+        trigConn = game:GetService("RunService").Heartbeat:Connect(function()
+            if not triggerOn then return end
+            for _, p in ipairs(game.Players:GetPlayers()) do
+                if p ~= plr and p.Character and p.Character:FindFirstChild("Humanoid") then
+                    if getRole(p) == "Murderer" then
+                        pcall(function() p.Character.Humanoid.Health = 0 end)
                     end
                 end
             end
         end)
     else
-        if triggerConn then triggerConn:Disconnect() end
+        if trigConn then trigConn:Disconnect() end
     end
 end
 
--- ===== SHOT MURDERER =====
-local function toggleShot(state)
-    toggles.shot = state
-end
-local function killMurderer()
-    if not toggles.shot then return end
-    for _, plr in ipairs(game.Players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("Humanoid") then
-            if getRole(plr) == "Murderer" then
-                pcall(function() plr.Character.Humanoid.Health = 0 end)
-                return
-            end
-        end
-    end
-end
-
--- ===== SPEED GLITCH =====
+-- Speed Glitch
 local speedConn = nil
 local function toggleSpeed(state)
-    toggles.speedglitch = state
+    speedOn = state
     if state then
         if speedConn then speedConn:Disconnect() end
         speedConn = game:GetService("RunService").Stepped:Connect(function()
-            if not toggles.speedglitch then return end
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                local h = player.Character.Humanoid
+            if not speedOn then return end
+            if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+                local h = plr.Character.Humanoid
                 if h:GetState() == Enum.HumanoidStateType.Jumping or h:GetState() == Enum.HumanoidStateType.Falling then
-                    h.WalkSpeed = settings.speed
+                    h.WalkSpeed = speed
                 else
                     h.WalkSpeed = 16
                 end
@@ -135,67 +117,54 @@ local function toggleSpeed(state)
         end)
     else
         if speedConn then speedConn:Disconnect() end
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.WalkSpeed = 16
+        if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            plr.Character.Humanoid.WalkSpeed = 16
         end
     end
 end
 
--- ===== SUPER JUMP =====
+-- Super Jump
 local function toggleJump(state)
-    toggles.jump = state
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        player.Character.Humanoid.JumpPower = state and settings.jumppower or 50
+    jumpOn = state
+    if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+        plr.Character.Humanoid.JumpPower = state and jumpPower or 50
     end
 end
 
--- ===== NOCLIP =====
+-- Noclip
 local noclipConn = nil
 local function toggleNoclip(state)
-    toggles.noclip = state
+    noclipOn = state
     if state then
         if noclipConn then noclipConn:Disconnect() end
         noclipConn = game:GetService("RunService").Stepped:Connect(function()
-            if not toggles.noclip then return end
-            if player.Character then
-                for _, part in ipairs(player.Character:GetChildren()) do
+            if not noclipOn then return end
+            if plr.Character then
+                for _, part in ipairs(plr.Character:GetChildren()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
     else
         if noclipConn then noclipConn:Disconnect() end
-        if player.Character then
-            for _, part in ipairs(player.Character:GetChildren()) do
+        if plr.Character then
+            for _, part in ipairs(plr.Character:GetChildren()) do
                 if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
 end
 
--- ===== TELEPORT =====
-local function toggleTeleport(state)
-    toggles.teleport = state
-end
-mouse.Button1Down:Connect(function()
-    if toggles.teleport and mouse.Target then
-        local pos = mouse.Target.Position
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-        end
-    end
-end)
-
--- ===== FLY =====
+-- Fly
 local flyConn = nil
 local function toggleFly(state)
-    toggles.fly = state
+    flyOn = state
     if state then
         if flyConn then flyConn:Disconnect() end
         flyConn = game:GetService("RunService").Stepped:Connect(function()
-            if not toggles.fly then return end
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local root = player.Character.HumanoidRootPart
+            if not flyOn then return end
+            if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local root = plr.Character.HumanoidRootPart
                 local dir = Vector3.new(0,0,0)
                 local uis = game:GetService("UserInputService")
                 if uis:IsKeyDown(Enum.KeyCode.W) then dir = dir + root.CFrame.LookVector end
@@ -204,32 +173,61 @@ local function toggleFly(state)
                 if uis:IsKeyDown(Enum.KeyCode.D) then dir = dir + root.CFrame.RightVector end
                 if uis:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
                 if uis:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
-                root.Velocity = dir * settings.flyspeed
+                root.Velocity = dir * flySpeed
             end
         end)
     else
         if flyConn then flyConn:Disconnect() end
-        if player.Character and player.Character:FindFirstChild("Humanoid") then
-            player.Character.Humanoid.PlatformStand = false
+        if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+            plr.Character.Humanoid.PlatformStand = false
         end
     end
 end
 
--- ===== ЗАБРАТЬ ПИСТОЛЕТ =====
+-- Teleport
+local function toggleTeleport(state)
+    teleOn = state
+end
+mouse.Button1Down:Connect(function()
+    if teleOn and mouse.Target then
+        local pos = mouse.Target.Position
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            plr.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        end
+    end
+end)
+
+-- Shot Murderer
+local function toggleShot(state)
+    shotOn = state
+end
+local function killMurderer()
+    if not shotOn then return end
+    for _, p in ipairs(game.Players:GetPlayers()) do
+        if p ~= plr and p.Character and p.Character:FindFirstChild("Humanoid") then
+            if getRole(p) == "Murderer" then
+                pcall(function() p.Character.Humanoid.Health = 0 end)
+                return
+            end
+        end
+    end
+end
+
+-- Забрать пистолет
 local function pickupGun()
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    local root = player.Character.HumanoidRootPart
+    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
+    local root = plr.Character.HumanoidRootPart
     for _, item in ipairs(workspace:GetDescendants()) do
         if item:IsA("Tool") then
             local n = item.Name:lower()
             if n:find("gun") or n:find("pistol") or n:find("revolver") then
-                if item.Parent ~= player.Character and item.Parent ~= player.Backpack then
+                if item.Parent ~= plr.Character and item.Parent ~= plr.Backpack then
                     local dist = (item.Position - root.Position).Magnitude
                     if dist < 100 then
                         pcall(function()
                             root.CFrame = CFrame.new(item.Position + Vector3.new(0,2,0))
                             task.wait(0.2)
-                            item.Parent = player.Character
+                            item.Parent = plr.Character
                         end)
                         return
                     end
@@ -239,19 +237,20 @@ local function pickupGun()
     end
 end
 
--- ===== МЕНЮ =====
-local function createMenu()
+-- GUI
+local gui = nil
+local function createGUI()
     if gui then gui:Destroy() end
     gui = Instance.new("ScreenGui")
-    gui.Name = "RyzenHubGUI"
+    gui.Name = "RyzenHub"
     gui.Parent = game.CoreGui
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 400, 0, 480)
-    main.Position = UDim2.new(0.5, -200, 0.5, -240)
-    main.BackgroundColor3 = Color3.fromRGB(10,0,10)
-    main.BackgroundTransparency = 0.1
+    main.Size = UDim2.new(0, 350, 0, 460)
+    main.Position = UDim2.new(0.5, -175, 0.5, -230)
+    main.BackgroundColor3 = Color3.fromRGB(15,0,15)
+    main.BackgroundTransparency = 0.2
     main.BorderSizePixel = 2
     main.BorderColor3 = Color3.fromRGB(200,0,255)
     main.Active = true
@@ -259,23 +258,23 @@ local function createMenu()
     main.Parent = gui
 
     local title = Instance.new("Frame")
-    title.Size = UDim2.new(1,0,0,40)
+    title.Size = UDim2.new(1,0,0,35)
     title.BackgroundColor3 = Color3.fromRGB(30,0,30)
     title.BorderSizePixel = 0
     title.Parent = main
 
     local logo = Instance.new("ImageLabel")
-    logo.Size = UDim2.new(0,30,0,30)
+    logo.Size = UDim2.new(0,25,0,25)
     logo.Position = UDim2.new(0.02,0,0.1,0)
     logo.BackgroundTransparency = 1
     logo.Image = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/AMD_Ryzen_logo.svg/120px-AMD_Ryzen_logo.svg.png"
     logo.Parent = title
 
     local txt = Instance.new("TextLabel")
-    txt.Size = UDim2.new(1,-50,1,0)
-    txt.Position = UDim2.new(0,50,0,0)
+    txt.Size = UDim2.new(1,-45,1,0)
+    txt.Position = UDim2.new(0,45,0,0)
     txt.BackgroundTransparency = 1
-    txt.Text = "✦ RYZEN HUB ✦"
+    txt.Text = "RYZEN HUB"
     txt.TextColor3 = Color3.fromRGB(255,0,200)
     txt.TextScaled = true
     txt.Font = Enum.Font.GothamBold
@@ -283,7 +282,7 @@ local function createMenu()
 
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0,25,0,25)
-    close.Position = UDim2.new(1,-35,0,8)
+    close.Position = UDim2.new(1,-30,0,5)
     close.BackgroundColor3 = Color3.fromRGB(80,0,80)
     close.BorderSizePixel = 0
     close.Text = "✕"
@@ -293,9 +292,10 @@ local function createMenu()
     close.Parent = title
     close.MouseButton1Click:Connect(function() gui:Destroy() end)
 
-    local function createBtn(text, y, func)
+    local y = 0.08
+    local function addBtn(text, cb)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85,0,0,28)
+        btn.Size = UDim2.new(0.85,0,0,26)
         btn.Position = UDim2.new(0.075,0,y,0)
         btn.BackgroundColor3 = Color3.fromRGB(30,0,30)
         btn.BorderSizePixel = 1
@@ -315,13 +315,14 @@ local function createMenu()
                 btn.BackgroundColor3 = Color3.fromRGB(30,0,30)
                 btn.TextColor3 = Color3.fromRGB(255,255,255)
             end
-            func(active)
+            cb(active)
             if text:find("ESP") then updateESP() end
         end)
+        y = y + 0.07
         return btn
     end
 
-    local function createSlider(txt, y, min, max, def, cb)
+    local function addSlider(txt, min, max, def, cb)
         local fr = Instance.new("Frame")
         fr.Size = UDim2.new(0.85,0,0,22)
         fr.Position = UDim2.new(0.075,0,y,0)
@@ -357,41 +358,42 @@ local function createMenu()
             sl.Text = tostring(val)
             cb(val)
         end)
+        y = y + 0.065
         return sl
     end
 
-    -- КНОПКИ
-    createBtn("👁️ ESP", 0.08, function(s) toggles.esp = s updateESP() end)
-    createBtn("🎯 Trigger Bot", 0.14, toggleTrigger)
-    createBtn("⚡ Speed Glitch", 0.20, toggleSpeed)
-    createBtn("🦘 Super Jump", 0.26, toggleJump)
-    createBtn("🌀 Noclip", 0.32, toggleNoclip)
-    createBtn("📍 Teleport", 0.38, toggleTeleport)
-    createBtn("✈️ Fly", 0.44, toggleFly)
-    createBtn("🔫 Shot Murderer [H]", 0.50, toggleShot)
-    createBtn("🔫 Забрать пистолет [G]", 0.56, function() pickupGun() end)
+    -- Кнопки
+    addBtn("👁️ ESP", function(s) espOn = s updateESP() end)
+    addBtn("🎯 Trigger Bot", toggleTrigger)
+    addBtn("⚡ Speed Glitch", toggleSpeed)
+    addBtn("🦘 Super Jump", toggleJump)
+    addBtn("🌀 Noclip", toggleNoclip)
+    addBtn("📍 Teleport", toggleTeleport)
+    addBtn("✈️ Fly", toggleFly)
+    addBtn("🔫 Shot Murderer [H]", toggleShot)
+    addBtn("🔫 Забрать пистолет [G]", function() pickupGun() end)
 
-    -- СЛАЙДЕРЫ
-    createSlider("⚡ Speed", 0.63, 20, 300, settings.speed, function(v) settings.speed = v end)
-    createSlider("✈️ Fly Speed", 0.70, 10, 200, settings.flyspeed, function(v) settings.flyspeed = v end)
-    createSlider("🦘 Jump Power", 0.77, 50, 300, settings.jumppower, function(v) settings.jumppower = v end)
+    -- Слайдеры
+    addSlider("⚡ Speed", 20, 300, speed, function(v) speed = v end)
+    addSlider("✈️ Fly Speed", 10, 200, flySpeed, function(v) flySpeed = v end)
+    addSlider("🦘 Jump Power", 50, 300, jumpPower, function(v) jumpPower = v end)
 
     print("✅ Ryzen Hub загружен!")
 end
 
--- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
+-- Открытие по правому Shift
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightShift then
         if gui and gui.Parent then
             gui:Destroy()
             gui = nil
         else
-            createMenu()
+            createGUI()
         end
     end
 end)
 
--- Обработчики H и G
+-- Клавиши H и G
 game:GetService("UserInputService").InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.H then
         killMurderer()
@@ -401,5 +403,5 @@ game:GetService("UserInputService").InputBegan:Connect(function(input)
     end
 end)
 
-createMenu()
+createGUI()
 print("✅ RYZEN HUB готов! Нажми ПРАВЫЙ SHIFT.")
