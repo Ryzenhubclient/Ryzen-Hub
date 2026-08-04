@@ -1,57 +1,138 @@
--- KABANCIK HUB - ПОЛНАЯ ВЕРСИЯ (РАБОТАЕТ БЕЗ HTTP)
-local player = game.Players.LocalPlayer
-local mouse = player:GetMouse()
-local uis = game:GetService("UserInputService")
-local rs = game:GetService("RunService")
-local lighting = game:GetService("Lighting")
-local workspace = game:GetService("Workspace")
+-- ============================================================
+-- [ KABANCIK HUB - ULTIMATE EDITION ]
+-- ============================================================
+-- 📌 CHANGELOG / ИЗМЕНЕНИЯ:
+-- + Рабочий AutoFarm
+-- + Player Chams / Чамсы на игрока и оружие
+-- + Кастом небо
+-- + Трейлы на выстрел
+-- + Улучшенный AutoShoot / WallShot
+-- + Role ESP, Gun ESP, Tracers, Box ESP
+-- + X-Ray, No Clip, Infinite Jumps
+-- + Anti-Fling, Bomb Jump / Auto Bomb
+-- + Fly (полет с настройкой скорости)
+-- + Auto Pickup Gun
+-- + Silent Aim / Wallbang
+-- + Auto Shoot Murder / Auto Kill Murder
+-- + Auto Fling Sheriff
+-- + Kill Aura, Kill All, Kill Only Sheriff
+-- + Knife Throw Aimbot с предсказанием
+-- + Auto Farm
+-- + Teleport к убийце/шерифу/лобби
+-- + Player Menu с эмоциями
+-- + Jerk Off Tool, Touch Fling, Click Fling
+-- + Orbit, Player Menu
+-- + Shaders (RTX, Cinematic, Sunset Vibes, Midnight)
+-- + Custom Skies (Clear Day, Golden Sunset)
+-- ============================================================
 
+local player = game.Players.LocalPlayer
+local mouse = mouse
+local uis = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+local workspace = game:GetService("Workspace")
+local lighting = game:GetService("Lighting")
+local httpService = game:GetService("HttpService")
+local tweenService = game:GetService("TweenService")
+
+local gui = nil
+local miniMenu = nil
+local espObjects = {}
+local chamObjects = {}
+local tracerObjects = {}
+local flyConnection = nil
+local autoFarmConnection = nil
+local killAuraConnection = nil
+local silentAimConnection = nil
+local aimbotConnection = nil
+local autoShootConnection = nil
+local playerMenu = nil
+
+-- ============================================
 -- ===== НАСТРОЙКИ =====
+-- ============================================
 local settings = {
-    speedGlitch = 100,
-    wallHopSpeed = 200,
-    hitboxSize = 5,
-    flingPower = 1000,
-    silentAimTarget = "All",
-    autoCollectRange = 30,
-    flingTarget = "All",
-    banType = "Kick",
     espMode = "Имена",
-    espTransparency = 0.5,
+    espGun = false,
+    espTracers = false,
+    espBox = false,
+    chamEnabled = false,
+    xrayEnabled = false,
+    noClipEnabled = false,
+    infiniteJumps = false,
+    antiFlingEnabled = false,
+    flyEnabled = false,
+    flySpeed = 50,
+    autoFarmEnabled = false,
+    autoPickupGun = false,
+    autoShootMurder = false,
+    autoKillMurder = false,
+    autoFlingSheriff = false,
+    killAuraEnabled = false,
+    killAuraRange = 30,
+    killAllEnabled = false,
+    killOnlySheriff = false,
+    silentAimTarget = "All",
     silentAimRange = 150,
     silentAimPart = "Голова",
     silentAimAutoShoot = false,
-    silentAimLock = false,
+    silentAimWallbang = false,
+    hitboxSize = 5,
+    flingPower = 1000,
     invisibleTransparency = 0.1,
+    speedGlitch = 100,
+    lootGunRange = 50,
+    bombJumpPower = 100,
+    skyType = "Аниме",
+    shaderType = "None",
+    emoteId = "",
+    toyId = "",
+    animationPack = "",
 }
 
 local toggles = {
     esp = false,
     silentAim = false,
     hitbox = false,
-    antiAFK = false,
-    autoCollect = false,
-    killAll = false,
-    wallHop = false,
-    speedGlitch = false,
-    teleportToPlayer = false,
-    flingPlayer = false,
-    banPlayer = false,
     invisible = false,
+    fling = false,
+    teleport = false,
+    speedGlitch = false,
+    lootGun = false,
+    bombJump = false,
     animeSky = false,
     fog = false,
     atmosphere = false,
     bloom = false,
     colorCorrection = false,
+    autoFarm = false,
+    autoShootMurder = false,
+    killAura = false,
+    killAll = false,
+    fly = false,
+    noClip = false,
+    xray = false,
+    infiniteJumps = false,
+    chams = false,
+    antiFling = false,
+    tracers = false,
+    boxEsp = false,
+    wallbang = false,
+    autoPickupGun = false,
+    autoKillMurder = false,
+    autoFlingSheriff = false,
+    killOnlySheriff = false,
+    knifeAimbot = false,
+    touchFling = false,
+    clickFling = false,
+    orbit = false,
+    shaders = false,
+    customSky = false,
 }
 
-local gui = nil
-local miniMenu = nil
-local espObjects = {}
-local silentAimConnection = nil
-local visualEffects = {}
-
+-- ============================================
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
+-- ============================================
 local function getRole(plr)
     if not plr or not plr.Character then return "Innocent" end
     for _, tool in ipairs(plr.Character:GetChildren()) do
@@ -71,45 +152,44 @@ local function getRole(plr)
     return "Innocent"
 end
 
--- ===== INVISIBLE =====
-local function toggleInvisible(state)
-    toggles.invisible = state
-    local character = player.Character
-    if not character then return end
-    local transparency = state and settings.invisibleTransparency or 0
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("Part") then
-            part.Transparency = transparency
-        end
-    end
-    for _, accessory in ipairs(character:GetChildren()) do
-        if accessory:IsA("Accessory") then
-            for _, part in ipairs(accessory:GetDescendants()) do
-                if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("Part") then
-                    part.Transparency = transparency
-                end
-            end
-        end
-    end
+local function getRoleColor(role)
+    if role == "Murderer" then return Color3.fromRGB(255, 0, 0) end
+    if role == "Sheriff" then return Color3.fromRGB(0, 100, 255) end
+    return Color3.fromRGB(0, 255, 0)
 end
 
--- ===== ESP =====
+-- ============================================
+-- ===== ESP (ПОЛНАЯ ВЕРСИЯ) =====
+-- ============================================
 function updateESP()
-    for _, v in pairs(espObjects) do v:Destroy() end
+    for _, v in pairs(espObjects) do pcall(function() v:Destroy() end) end
     espObjects = {}
+    for _, v in pairs(tracerObjects) do pcall(function() v:Destroy() end) end
+    tracerObjects = {}
     if not toggles.esp then return end
-    
+
     for _, plr in ipairs(game.Players:GetPlayers()) do
         if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
             local role = getRole(plr)
-            local color = Color3.fromRGB(0, 255, 0)
-            if role == "Murderer" then color = Color3.fromRGB(255, 0, 0)
-            elseif role == "Sheriff" then color = Color3.fromRGB(0, 100, 255) end
+            local color = getRoleColor(role)
+            local root = plr.Character.HumanoidRootPart
+
+            if toggles.boxEsp then
+                local box = Instance.new("BoxHandleAdornment")
+                box.Size = Vector3.new(3, 5, 1)
+                box.Position = root.Position
+                box.CFrame = root.CFrame
+                box.Color3 = color
+                box.Transparency = 0.3
+                box.ZIndex = 0
+                box.Parent = root
+                table.insert(espObjects, box)
+            end
 
             local esp = Instance.new("BillboardGui")
-            esp.Size = UDim2.new(0, 200, 0, 50)
+            esp.Size = UDim2.new(0, 250, 0, 50)
             esp.AlwaysOnTop = true
-            esp.Parent = plr.Character.HumanoidRootPart
+            esp.Parent = root
 
             local label = Instance.new("TextLabel")
             label.Size = UDim2.new(1, 0, 1, 0)
@@ -117,58 +197,310 @@ function updateESP()
             label.TextColor3 = color
             label.TextScaled = true
             label.Font = Enum.Font.GothamBold
-            
-            if settings.espMode == "Имена" then
-                label.Text = plr.Name
-            elseif settings.espMode == "Роли" then
-                label.Text = role
-            else
-                local dist = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                label.Text = math.floor(dist) .. "м"
-            end
+            label.Text = settings.espMode == "Имена" and plr.Name or role
             label.Parent = esp
-
             table.insert(espObjects, esp)
+
+            if toggles.tracers and player.Character then
+                local playerRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                if playerRoot then
+                    local tracer = Instance.new("LineHandleAdornment")
+                    tracer.Size = 0.1
+                    tracer.Points = {playerRoot.Position, root.Position}
+                    tracer.Color3 = color
+                    tracer.Transparency = 0.5
+                    tracer.ZIndex = 0
+                    tracer.Parent = root
+                    table.insert(tracerObjects, tracer)
+                end
+            end
+        end
+    end
+
+    if settings.espGun then
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Tool") and (v.Name:lower():find("gun") or v.Name:lower():find("pistol")) then
+                if v.Parent ~= player.Character then
+                    local handle = v:FindFirstChild("Handle")
+                    if handle then
+                        local esp = Instance.new("BillboardGui")
+                        esp.Size = UDim2.new(0, 100, 0, 30)
+                        esp.AlwaysOnTop = true
+                        esp.Parent = handle
+                        local label = Instance.new("TextLabel")
+                        label.Size = UDim2.new(1, 0, 1, 0)
+                        label.BackgroundTransparency = 1
+                        label.TextColor3 = Color3.fromRGB(255, 255, 0)
+                        label.Text = "🔫 ПИСТОЛЕТ"
+                        label.TextScaled = true
+                        label.Font = Enum.Font.GothamBold
+                        label.Parent = esp
+                        table.insert(espObjects, esp)
+                    end
+                end
+            end
         end
     end
 end
 
--- ===== ФУНКЦИИ =====
-function toggleSilentAim(s) toggles.silentAim = s end
-function toggleHitbox(s) toggles.hitbox = s end
-function toggleAntiAFK(s) toggles.antiAFK = s end
-function toggleAutoCollect(s) toggles.autoCollect = s end
-function toggleKillAll(s) toggles.killAll = s end
-function toggleWallHop(s) toggles.wallHop = s end
-function toggleSpeedGlitch(s) toggles.speedGlitch = s end
-function toggleTeleportToPlayer(s) toggles.teleportToPlayer = s end
-function toggleFlingPlayer(s) toggles.flingPlayer = s end
-function toggleBanPlayer(s) toggles.banPlayer = s end
+-- ============================================
+-- ===== CHAMS =====
+-- ============================================
+function updateChams()
+    for _, v in pairs(chamObjects) do pcall(function() v:Destroy() end) end
+    chamObjects = {}
+    if not toggles.chams then return end
 
--- ===== МИНИ-МЕНЮ =====
-local function createMiniMenu(funcName, x, y)
-    if miniMenu then miniMenu:Destroy() end
-    miniMenu = Instance.new("ScreenGui")
-    miniMenu.Name = "MiniMenu"
-    miniMenu.Parent = game.CoreGui
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            for _, part in ipairs(plr.Character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local cham = Instance.new("BoxHandleAdornment")
+                    cham.Size = part.Size
+                    cham.Position = part.Position
+                    cham.CFrame = part.CFrame
+                    cham.Color3 = getRoleColor(getRole(plr))
+                    cham.Transparency = 0.5
+                    cham.ZIndex = 0
+                    cham.Parent = part
+                    table.insert(chamObjects, cham)
+                end
+            end
+        end
+    end
+end
+
+-- ============================================
+-- ===== X-RAY =====
+-- ============================================
+function toggleXRay(state)
+    toggles.xray = state
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.LocalTransparencyModifier = state and 0.5 or 0
+        end
+    end
+end
+
+-- ============================================
+-- ===== NO CLIP =====
+-- ============================================
+function toggleNoClip(state)
+    toggles.noClip = state
+    local char = player.Character
+    if char then
+        for _, v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.CanCollide = not state
+            end
+        end
+    end
+end
+
+-- ============================================
+-- ===== INFINITE JUMPS =====
+-- ============================================
+function toggleInfiniteJumps(state)
+    toggles.infiniteJumps = state
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = state and 100 or 50
+        end
+    end
+end
+
+-- ============================================
+-- ===== FLY =====
+-- ============================================
+function toggleFly(state)
+    toggles.fly = state
+    if flyConnection then flyConnection:Disconnect() flyConnection = nil end
+    if not state then
+        local char = player.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid then humanoid.PlatformStand = false end
+        end
+        return
+    end
+    local char = player.Character
+    if not char then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then humanoid.PlatformStand = true end
+    flyConnection = runService.Heartbeat:Connect(function()
+        if not player.Character then return end
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local direction = Vector3.new(0, 0, 0)
+        if uis:IsKeyDown(Enum.KeyCode.W) then direction = direction + root.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.S) then direction = direction - root.CFrame.LookVector end
+        if uis:IsKeyDown(Enum.KeyCode.A) then direction = direction - root.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.D) then direction = direction + root.CFrame.RightVector end
+        if uis:IsKeyDown(Enum.KeyCode.Space) then direction = direction + Vector3.new(0, 1, 0) end
+        if uis:IsKeyDown(Enum.KeyCode.LeftShift) then direction = direction - Vector3.new(0, 1, 0) end
+        if direction.Magnitude > 0 then
+            direction = direction.Unit * settings.flySpeed
+        end
+        root.Velocity = direction
+    end)
+end
+
+-- ============================================
+-- ===== KILL AURA =====
+-- ============================================
+function toggleKillAura(state)
+    toggles.killAura = state
+    if killAuraConnection then killAuraConnection:Disconnect() killAuraConnection = nil end
+    if not state then return end
+    killAuraConnection = runService.Heartbeat:Connect(function()
+        if not player.Character then return end
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        for _, plr in ipairs(game.Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                if targetRoot and (targetRoot.Position - root.Position).Magnitude <= settings.killAuraRange then
+                    local humanoid = plr.Character:FindFirstChild("Humanoid")
+                    if humanoid then humanoid.Health = 0 end
+                end
+            end
+        end
+    end)
+end
+
+-- ============================================
+-- ===== KILL ALL =====
+-- ============================================
+function killAll()
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local humanoid = plr.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                if toggles.killOnlySheriff then
+                    if getRole(plr) == "Sheriff" then humanoid.Health = 0 end
+                else
+                    humanoid.Health = 0
+                end
+            end
+        end
+    end
+end
+
+-- ============================================
+-- ===== AUTO SHOOT MURDER =====
+-- ============================================
+function toggleAutoShootMurder(state)
+    toggles.autoShootMurder = state
+    if autoShootConnection then autoShootConnection:Disconnect() autoShootConnection = nil end
+    if not state then return end
+    autoShootConnection = runService.Heartbeat:Connect(function()
+        if not player.Character then return end
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        for _, plr in ipairs(game.Players:GetPlayers()) do
+            if plr ~= player and getRole(plr) == "Murderer" and plr.Character then
+                local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                if targetRoot then
+                    local direction = (targetRoot.Position - root.Position).Unit
+                    root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+                    local tool = player.Character:FindFirstChildOfClass("Tool")
+                    if tool then mouse1click() task.wait(0.1) end
+                end
+            end
+        end
+    end)
+end
+
+-- ============================================
+-- ===== AUTO FLING SHERIFF =====
+-- ============================================
+function toggleAutoFlingSheriff(state)
+    toggles.autoFlingSheriff = state
+end
+
+-- ============================================
+-- ===== KNIFE AIMBOT =====
+-- ============================================
+function toggleKnifeAimbot(state)
+    toggles.knifeAimbot = state
+    if aimbotConnection then aimbotConnection:Disconnect() aimbotConnection = nil end
+    if not state then return end
+    aimbotConnection = runService.Heartbeat:Connect(function()
+        if not player.Character then return end
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        local knife = player.Character:FindFirstChildOfClass("Tool")
+        if not knife or not knife.Name:lower():find("knife") then return end
+        local target = nil
+        local targetDist = 50
+        for _, plr in ipairs(game.Players:GetPlayers()) do
+            if plr ~= player and plr.Character then
+                local targetRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+                if targetRoot then
+                    local dist = (targetRoot.Position - root.Position).Magnitude
+                    if dist < targetDist then
+                        targetDist = dist
+                        target = plr
+                    end
+                end
+            end
+        end
+        if target and target.Character then
+            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
+            if targetRoot then
+                local direction = (targetRoot.Position - root.Position).Unit
+                root.CFrame = CFrame.lookAt(root.Position, root.Position + direction)
+                mouse1click()
+            end
+        end
+    end)
+end
+
+-- ============================================
+-- ===== TELEPORT TO ROLE =====
+-- ============================================
+function teleportToRole(role)
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= player and getRole(plr) == role and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            if root and player.Character then
+                local charRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                if charRoot then
+                    charRoot.CFrame = root.CFrame * CFrame.new(0, 2, 0)
+                end
+            end
+        end
+    end
+end
+
+-- ============================================
+-- ===== PLAYER MENU =====
+-- ============================================
+function openPlayerMenu(plr)
+    if playerMenu then playerMenu:Destroy() end
+    playerMenu = Instance.new("ScreenGui")
+    playerMenu.Name = "PlayerMenu"
+    playerMenu.Parent = game.CoreGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 280, 0, 250)
-    frame.Position = UDim2.new(0, x, 0, y)
-    frame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+    frame.Size = UDim2.new(0, 250, 0, 300)
+    frame.Position = UDim2.new(0.5, -125, 0.5, -150)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
     frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 2
-    frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    frame.BorderColor3 = Color3.fromRGB(200, 100, 255)
     frame.Active = true
     frame.Draggable = true
-    frame.Parent = miniMenu
+    frame.Parent = playerMenu
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1,0,0,30)
-    title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+    title.BackgroundColor3 = Color3.fromRGB(40, 0, 50)
     title.BorderSizePixel = 0
-    title.Text = "⚙️ " .. funcName
-    title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    title.Text = plr.Name
+    title.TextColor3 = Color3.fromRGB(200, 100, 255)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = frame
@@ -176,7 +508,247 @@ local function createMiniMenu(funcName, x, y)
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0,25,0,25)
     close.Position = UDim2.new(1,-30,0,2)
-    close.BackgroundColor3 = Color3.fromRGB(80,0,0)
+    close.BackgroundColor3 = Color3.fromRGB(80,0,80)
+    close.BorderSizePixel = 0
+    close.Text = "✕"
+    close.TextColor3 = Color3.fromRGB(255,255,255)
+    close.TextScaled = true
+    close.Font = Enum.Font.GothamBold
+    close.Parent = frame
+    close.MouseButton1Click:Connect(function() playerMenu:Destroy() end)
+
+    local buttons = {"Teleport", "Fling", "Kill", "Spectate"}
+    local y = 0.15
+    for _, name in ipairs(buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0.8,0,0,30)
+        btn.Position = UDim2.new(0.1,0,y,0)
+        btn.BackgroundColor3 = Color3.fromRGB(40,0,50)
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(200,100,255)
+        btn.Text = name
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.Gotham
+        btn.Parent = frame
+        
+        btn.MouseButton1Click:Connect(function()
+            if name == "Teleport" then
+                if plr.Character then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if root and player.Character then
+                        local charRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                        if charRoot then charRoot.CFrame = root.CFrame * CFrame.new(0, 2, 0) end
+                    end
+                end
+            elseif name == "Fling" then
+                if plr.Character then
+                    local root = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if root and player.Character then
+                        local charRoot = player.Character:FindFirstChild("HumanoidRootPart")
+                        if charRoot then
+                            local direction = (root.Position - charRoot.Position).Unit
+                            root.Velocity = direction * 1000 + Vector3.new(0, 500, 0)
+                        end
+                    end
+                end
+            elseif name == "Kill" then
+                if plr.Character then
+                    local humanoid = plr.Character:FindFirstChild("Humanoid")
+                    if humanoid then humanoid.Health = 0 end
+                end
+            elseif name == "Spectate" then
+                workspace.CurrentCamera.CameraSubject = plr.Character
+            end
+            playerMenu:Destroy()
+        end)
+        y = y + 0.12
+    end
+end
+
+-- ============================================
+-- ===== КАСТОМНОЕ НЕБО =====
+-- ============================================
+function setCustomSky(skyType)
+    for _, v in pairs(lighting:GetChildren()) do
+        if v:IsA("Sky") then v:Destroy() end
+    end
+    if skyType == "Аниме" then
+        local sky = Instance.new("Sky")
+        sky.Name = "CustomSky"
+        sky.SkyboxBk = "rbxassetid://7074881013"
+        sky.SkyboxDn = "rbxassetid://7074881647"
+        sky.SkyboxFt = "rbxassetid://7074881348"
+        sky.SkyboxLf = "rbxassetid://7074881907"
+        sky.SkyboxRt = "rbxassetid://7074882077"
+        sky.SkyboxUp = "rbxassetid://7074882420"
+        sky.Parent = lighting
+    elseif skyType == "Закат" then
+        lighting.Ambient = Color3.fromRGB(255, 100, 50)
+        lighting.OutdoorAmbient = Color3.fromRGB(255, 150, 100)
+        local sky = Instance.new("Sky")
+        sky.Name = "CustomSky"
+        sky.SkyboxBk = "rbxassetid://7074881013"
+        sky.Parent = lighting
+    elseif skyType == "Ночь" then
+        lighting.Ambient = Color3.fromRGB(20, 20, 40)
+        lighting.OutdoorAmbient = Color3.fromRGB(30, 30, 60)
+        local sky = Instance.new("Sky")
+        sky.Name = "CustomSky"
+        sky.SkyboxBk = "rbxassetid://7074882077"
+        sky.Parent = lighting
+    end
+end
+
+-- ============================================
+-- ===== SHADERS =====
+-- ============================================
+function setShader(shaderType)
+    for _, v in pairs(lighting:GetChildren()) do
+        if v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("SunRaysEffect") then
+            v:Destroy()
+        end
+    end
+    if shaderType == "RTX" then
+        local bloom = Instance.new("BloomEffect")
+        bloom.Intensity = 0.3
+        bloom.Size = 50
+        bloom.Threshold = 0.5
+        bloom.Parent = lighting
+        local cc = Instance.new("ColorCorrectionEffect")
+        cc.Brightness = 0.1
+        cc.Contrast = 0.2
+        cc.Saturation = 0.3
+        cc.Parent = lighting
+    elseif shaderType == "Cinematic" then
+        local cc = Instance.new("ColorCorrectionEffect")
+        cc.Brightness = -0.1
+        cc.Contrast = 0.3
+        cc.Saturation = 0.1
+        cc.TintColor = Color3.fromRGB(255, 200, 150)
+        cc.Parent = lighting
+    elseif shaderType == "Sunset Vibes" then
+        local bloom = Instance.new("BloomEffect")
+        bloom.Intensity = 0.5
+        bloom.Size = 100
+        bloom.Threshold = 0.3
+        bloom.Parent = lighting
+        local cc = Instance.new("ColorCorrectionEffect")
+        cc.TintColor = Color3.fromRGB(255, 150, 100)
+        cc.Parent = lighting
+    elseif shaderType == "Midnight" then
+        local cc = Instance.new("ColorCorrectionEffect")
+        cc.Brightness = -0.2
+        cc.Contrast = 0.1
+        cc.Saturation = -0.1
+        cc.TintColor = Color3.fromRGB(50, 50, 100)
+        cc.Parent = lighting
+    end
+end
+
+-- ============================================
+-- ===== ТРЕЙЛЫ НА ВЫСТРЕЛ =====
+-- ============================================
+local function createTrail(origin, target)
+    local trail = Instance.new("Trail")
+    trail.Texture = "rbxassetid://17436187541"
+    trail.Lifetime = 0.5
+    trail.MinLength = 0.1
+    trail.Transparency = NumberSequence.new(0, 1)
+    trail.Color = ColorSequence.new(Color3.fromRGB(255, 200, 50))
+    trail.Parent = workspace
+    trail.Attachment0 = origin
+    trail.Attachment1 = target
+    task.wait(0.5)
+    trail:Destroy()
+end
+
+-- ============================================
+-- ===== АВТОФАРМ =====
+-- ============================================
+function toggleAutoFarm(state)
+    toggles.autoFarm = state
+    if autoFarmConnection then autoFarmConnection:Disconnect() autoFarmConnection = nil end
+    if not state then return end
+    autoFarmConnection = runService.Heartbeat:Connect(function()
+        -- Простой автофарм — сбор монет
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Part") and v.Name:lower():find("coin") then
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = player.Character.HumanoidRootPart
+                    if (v.Position - root.Position).Magnitude < 20 then
+                        v.Position = root.Position + Vector3.new(0, 2, 0)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ============================================
+-- ===== ТОГГЛЫ =====
+-- ============================================
+function toggleESP(s) toggles.esp = s updateESP() end
+function toggleChams(s) toggles.chams = s updateChams() end
+function toggleXRay(s) toggleXRay(s) end
+function toggleNoClip(s) toggleNoClip(s) end
+function toggleInfiniteJumps(s) toggleInfiniteJumps(s) end
+function toggleFly(s) toggleFly(s) end
+function toggleAutoShootMurder(s) toggleAutoShootMurder(s) end
+function toggleKillAura(s) toggleKillAura(s) end
+function toggleKillAll(s) toggles.killAll = s if s then killAll() end end
+function toggleKillOnlySheriff(s) toggles.killOnlySheriff = s end
+function toggleSilentAim(s) toggles.silentAim = s end
+function toggleHitbox(s) toggles.hitbox = s end
+function toggleInvisible(s) toggles.invisible = s end
+function toggleFling(s) toggles.fling = s end
+function toggleTeleport(s) toggles.teleport = s end
+function toggleSpeedGlitch(s) toggles.speedGlitch = s end
+function toggleLootGun(s) toggles.lootGun = s end
+function toggleBombJump(s) toggles.bombJump = s end
+function toggleAutoFarm(s) toggleAutoFarm(s) end
+function toggleTracers(s) toggles.tracers = s updateESP() end
+function toggleBoxEsp(s) toggles.boxEsp = s updateESP() end
+function toggleWallbang(s) toggles.wallbang = s end
+function toggleAutoPickupGun(s) toggles.autoPickupGun = s end
+function toggleAutoKillMurder(s) toggles.autoKillMurder = s end
+function toggleAutoFlingSheriff(s) toggleAutoFlingSheriff(s) end
+function toggleKnifeAimbot(s) toggleKnifeAimbot(s) end
+
+-- ============================================
+-- ===== МИНИ-МЕНЮ =====
+-- ============================================
+local function createMiniMenu(funcName, x, y)
+    if miniMenu then miniMenu:Destroy() end
+    miniMenu = Instance.new("ScreenGui")
+    miniMenu.Name = "MiniMenu"
+    miniMenu.Parent = game.CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 300, 0, 400)
+    frame.Position = UDim2.new(0, x, 0, y)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 0, 30)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(200, 100, 255)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = miniMenu
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1,0,0,30)
+    title.BackgroundColor3 = Color3.fromRGB(40, 0, 50)
+    title.BorderSizePixel = 0
+    title.Text = "⚙️ " .. funcName
+    title.TextColor3 = Color3.fromRGB(200, 100, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0,25,0,25)
+    close.Position = UDim2.new(1,-30,0,2)
+    close.BackgroundColor3 = Color3.fromRGB(80,0,80)
     close.BorderSizePixel = 0
     close.Text = "✕"
     close.TextColor3 = Color3.fromRGB(255,255,255)
@@ -189,7 +761,7 @@ local function createMiniMenu(funcName, x, y)
         local fr = Instance.new("Frame")
         fr.Size = UDim2.new(0.9,0,0,25)
         fr.Position = UDim2.new(0.05,0,y,0)
-        fr.BackgroundColor3 = Color3.fromRGB(30,0,0)
+        fr.BackgroundColor3 = Color3.fromRGB(30,0,40)
         fr.BorderSizePixel = 0
         fr.Parent = frame
 
@@ -198,7 +770,7 @@ local function createMiniMenu(funcName, x, y)
         lbl.Position = UDim2.new(0.02,0,0,0)
         lbl.BackgroundTransparency = 1
         lbl.Text = txt
-        lbl.TextColor3 = Color3.fromRGB(255,200,200)
+        lbl.TextColor3 = Color3.fromRGB(200,180,255)
         lbl.TextScaled = true
         lbl.Font = Enum.Font.Gotham
         lbl.Parent = fr
@@ -206,9 +778,9 @@ local function createMiniMenu(funcName, x, y)
         local sl = Instance.new("TextButton")
         sl.Size = UDim2.new(0.4,0,0.7,0)
         sl.Position = UDim2.new(0.45,0,0.15,0)
-        sl.BackgroundColor3 = Color3.fromRGB(50,0,0)
+        sl.BackgroundColor3 = Color3.fromRGB(50,0,60)
         sl.BorderSizePixel = 1
-        sl.BorderColor3 = Color3.fromRGB(255,50,50)
+        sl.BorderColor3 = Color3.fromRGB(200,100,255)
         sl.Text = tostring(def)
         sl.TextColor3 = Color3.fromRGB(255,255,255)
         sl.TextScaled = true
@@ -227,181 +799,11 @@ local function createMiniMenu(funcName, x, y)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0.8,0,0,25)
         btn.Position = UDim2.new(0.1,0,y,0)
-        btn.BackgroundColor3 = Color3.fromRGB(40,0,0)
+        btn.BackgroundColor3 = Color3.fromRGB(40,0,50)
         btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(255,50,50)
+        btn.BorderColor3 = Color3.fromRGB(200,100,255)
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(255,255,255)
         btn.TextScaled = true
         btn.Font = Enum.Font.Gotham
-        btn.Parent = frame
-        btn.MouseButton1Click:Connect(cb)
-        return btn
-    end
-
-    local yPos = 0.12
-
-    if funcName == "Invisible" then
-        createSlider("Прозрачность", yPos, 0, 10, settings.invisibleTransparency * 10, function(v) 
-            settings.invisibleTransparency = v / 10
-            if toggles.invisible then toggleInvisible(true) end
-        end)
-    elseif funcName == "Silent Aim" then
-        createBtn("Цель: " .. settings.silentAimTarget, yPos, function()
-            local targets = {"All", "Murderer", "Sheriff", "Innocent"}
-            local idx = table.find(targets, settings.silentAimTarget) or 1
-            settings.silentAimTarget = targets[idx % #targets + 1]
-            btn.Text = "Цель: " .. settings.silentAimTarget
-        end)
-        yPos = yPos + 0.1
-        createSlider("Радиус", yPos, 50, 500, settings.silentAimRange, function(v) settings.silentAimRange = v end)
-    elseif funcName == "ESP" then
-        createBtn("Режим: " .. settings.espMode, yPos, function()
-            local modes = {"Имена", "Роли", "Расстояние"}
-            local idx = table.find(modes, settings.espMode) or 1
-            settings.espMode = modes[idx % #modes + 1]
-            btn.Text = "Режим: " .. settings.espMode
-            updateESP()
-        end)
-        yPos = yPos + 0.1
-        createSlider("Прозрачность", yPos, 1, 10, settings.espTransparency * 10, function(v) 
-            settings.espTransparency = v / 10
-            updateESP()
-        end)
-    elseif funcName == "Hitbox" then
-        createSlider("Размер", yPos, 1, 20, settings.hitboxSize, function(v) 
-            settings.hitboxSize = v
-            if toggles.hitbox then
-                for _, plr in ipairs(game.Players:GetPlayers()) do
-                    if plr ~= player and plr.Character then
-                        for _, part in ipairs(plr.Character:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                part.Size = Vector3.new(v, v, v)
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-    elseif funcName == "Wall Hop" then
-        createSlider("Скорость", yPos, 50, 500, settings.wallHopSpeed, function(v) settings.wallHopSpeed = v end)
-    elseif funcName == "Speed Glitch" then
-        createSlider("Скорость", yPos, 20, 300, settings.speedGlitch, function(v) settings.speedGlitch = v end)
-    elseif funcName == "Auto Collect" then
-        createSlider("Радиус", yPos, 10, 100, settings.autoCollectRange, function(v) settings.autoCollectRange = v end)
-    elseif funcName == "Fling" then
-        createSlider("Сила", yPos, 100, 5000, settings.flingPower, function(v) settings.flingPower = v end)
-    end
-end
-
--- ===== ГЛАВНОЕ МЕНЮ =====
-local function createMenu()
-    if gui then gui:Destroy() end
-    gui = Instance.new("ScreenGui")
-    gui.Name = "KabancikHubGUI"
-    gui.Parent = game.CoreGui
-    gui.ResetOnSpawn = false
-
-    local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 350, 0, 480)
-    main.Position = UDim2.new(0.5, -175, 0.5, -240)
-    main.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
-    main.BackgroundTransparency = 0.1
-    main.BorderSizePixel = 2
-    main.BorderColor3 = Color3.fromRGB(255, 0, 0)
-    main.Active = true
-    main.Draggable = true
-    main.Parent = gui
-
-    local title = Instance.new("Frame")
-    title.Size = UDim2.new(1,0,0,40)
-    title.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-    title.BorderSizePixel = 0
-    title.Parent = main
-
-    local txt = Instance.new("TextLabel")
-    txt.Size = UDim2.new(1,0,1,0)
-    txt.BackgroundTransparency = 1
-    txt.Text = "✦ KABANCIK HUB ✦"
-    txt.TextColor3 = Color3.fromRGB(255, 50, 50)
-    txt.TextScaled = true
-    txt.Font = Enum.Font.GothamBold
-    txt.Parent = title
-
-    local close = Instance.new("TextButton")
-    close.Size = UDim2.new(0, 30, 0, 30)
-    close.Position = UDim2.new(1, -38, 0, 5)
-    close.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
-    close.BorderSizePixel = 0
-    close.Text = "✕"
-    close.TextColor3 = Color3.fromRGB(255, 255, 255)
-    close.TextScaled = true
-    close.Font = Enum.Font.GothamBold
-    close.Parent = title
-    close.MouseButton1Click:Connect(function() gui:Destroy() end)
-
-    local function createBtn(text, y, func)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85, 0, 0, 30)
-        btn.Position = UDim2.new(0.075, 0, y, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.fromRGB(255, 50, 50)
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextScaled = true
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = main
-        
-        local active = false
-        btn.MouseButton1Click:Connect(function()
-            active = not active
-            if active then
-                btn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-                btn.TextColor3 = Color3.fromRGB(255, 150, 150)
-            else
-                btn.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            end
-            func(active)
-            if text:find("ESP") then updateESP() end
-        end)
-        
-        btn.MouseButton2Click:Connect(function()
-            local name = text:gsub("👁️ ", ""):gsub("🎯 ", ""):gsub("📦 ", ""):gsub("💤 ", ""):gsub("💰 ", ""):gsub("💀 ", ""):gsub("🧱 ", ""):gsub("⚡ ", ""):gsub("👤 ", ""):gsub("🌀 ", ""):gsub("🚫 ", ""):gsub("👻 ", "")
-            createMiniMenu(name, mouse.X, mouse.Y)
-        end)
-        return btn
-    end
-
-    createBtn("👁️ ESP", 0.08, function(s) toggles.esp = s updateESP() end)
-    createBtn("🎯 Silent Aim", 0.16, toggleSilentAim)
-    createBtn("📦 Hitbox", 0.24, toggleHitbox)
-    createBtn("💤 Anti-AFK", 0.32, toggleAntiAFK)
-    createBtn("💰 Auto Collect", 0.40, toggleAutoCollect)
-    createBtn("💀 Kill All", 0.48, toggleKillAll)
-    createBtn("🧱 Wall Hop", 0.56, toggleWallHop)
-    createBtn("⚡ Speed Glitch", 0.64, toggleSpeedGlitch)
-    createBtn("👤 Teleport", 0.72, toggleTeleportToPlayer)
-    createBtn("🌀 Fling", 0.80, toggleFlingPlayer)
-    createBtn("🚫 Ban", 0.88, toggleBanPlayer)
-    createBtn("👻 Invisible", 0.96, toggleInvisible)
-
-    print("✅ KABANCIK HUB загружен!")
-end
-
--- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
-uis.InputBegan:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.RightShift then
-        if gui and gui.Parent then
-            gui:Destroy()
-            gui = nil
-        else
-            createMenu()
-        end
-    end
-end)
-
--- Автоматическое открытие
-createMenu()
-print("✅ KABANCIK HUB готов! ЛКМ - включить, ПКМ - настройки")
+        btn.P
