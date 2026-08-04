@@ -1,8 +1,10 @@
--- KABANCIK HUB - ИСПРАВЛЕННЫЙ (РАБОТАЕТ 100%)
+-- KABANCIK HUB - ПОЛНАЯ ВЕРСИЯ (РАБОТАЕТ БЕЗ HTTP)
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 local uis = game:GetService("UserInputService")
 local rs = game:GetService("RunService")
+local lighting = game:GetService("Lighting")
+local workspace = game:GetService("Workspace")
 
 -- ===== НАСТРОЙКИ =====
 local settings = {
@@ -17,6 +19,10 @@ local settings = {
     espMode = "Имена",
     espTransparency = 0.5,
     silentAimRange = 150,
+    silentAimPart = "Голова",
+    silentAimAutoShoot = false,
+    silentAimLock = false,
+    invisibleTransparency = 0.1,
 }
 
 local toggles = {
@@ -31,12 +37,19 @@ local toggles = {
     teleportToPlayer = false,
     flingPlayer = false,
     banPlayer = false,
+    invisible = false,
+    animeSky = false,
+    fog = false,
+    atmosphere = false,
+    bloom = false,
+    colorCorrection = false,
 }
 
 local gui = nil
 local miniMenu = nil
 local espObjects = {}
-local connections = {}
+local silentAimConnection = nil
+local visualEffects = {}
 
 -- ===== ОПРЕДЕЛЕНИЕ РОЛИ =====
 local function getRole(plr)
@@ -56,6 +69,28 @@ local function getRole(plr)
         end
     end
     return "Innocent"
+end
+
+-- ===== INVISIBLE =====
+local function toggleInvisible(state)
+    toggles.invisible = state
+    local character = player.Character
+    if not character then return end
+    local transparency = state and settings.invisibleTransparency or 0
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("Part") then
+            part.Transparency = transparency
+        end
+    end
+    for _, accessory in ipairs(character:GetChildren()) do
+        if accessory:IsA("Accessory") then
+            for _, part in ipairs(accessory:GetDescendants()) do
+                if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("Part") then
+                    part.Transparency = transparency
+                end
+            end
+        end
+    end
 end
 
 -- ===== ESP =====
@@ -98,6 +133,18 @@ function updateESP()
     end
 end
 
+-- ===== ФУНКЦИИ =====
+function toggleSilentAim(s) toggles.silentAim = s end
+function toggleHitbox(s) toggles.hitbox = s end
+function toggleAntiAFK(s) toggles.antiAFK = s end
+function toggleAutoCollect(s) toggles.autoCollect = s end
+function toggleKillAll(s) toggles.killAll = s end
+function toggleWallHop(s) toggles.wallHop = s end
+function toggleSpeedGlitch(s) toggles.speedGlitch = s end
+function toggleTeleportToPlayer(s) toggles.teleportToPlayer = s end
+function toggleFlingPlayer(s) toggles.flingPlayer = s end
+function toggleBanPlayer(s) toggles.banPlayer = s end
+
 -- ===== МИНИ-МЕНЮ =====
 local function createMiniMenu(funcName, x, y)
     if miniMenu then miniMenu:Destroy() end
@@ -106,7 +153,7 @@ local function createMiniMenu(funcName, x, y)
     miniMenu.Parent = game.CoreGui
 
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 250)
+    frame.Size = UDim2.new(0, 280, 0, 250)
     frame.Position = UDim2.new(0, x, 0, y)
     frame.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
     frame.BackgroundTransparency = 0.1
@@ -169,7 +216,7 @@ local function createMiniMenu(funcName, x, y)
         sl.Parent = fr
         local val = def
         sl.MouseButton1Click:Connect(function()
-            val = val + 10
+            val = val + 1
             if val > max then val = min end
             sl.Text = tostring(val)
             cb(val)
@@ -194,118 +241,70 @@ local function createMiniMenu(funcName, x, y)
 
     local yPos = 0.12
 
-    if funcName == "ESP" then
-        createBtn("Режим: " .. settings.espMode, 0.12, function()
+    if funcName == "Invisible" then
+        createSlider("Прозрачность", yPos, 0, 10, settings.invisibleTransparency * 10, function(v) 
+            settings.invisibleTransparency = v / 10
+            if toggles.invisible then toggleInvisible(true) end
+        end)
+    elseif funcName == "Silent Aim" then
+        createBtn("Цель: " .. settings.silentAimTarget, yPos, function()
+            local targets = {"All", "Murderer", "Sheriff", "Innocent"}
+            local idx = table.find(targets, settings.silentAimTarget) or 1
+            settings.silentAimTarget = targets[idx % #targets + 1]
+            btn.Text = "Цель: " .. settings.silentAimTarget
+        end)
+        yPos = yPos + 0.1
+        createSlider("Радиус", yPos, 50, 500, settings.silentAimRange, function(v) settings.silentAimRange = v end)
+    elseif funcName == "ESP" then
+        createBtn("Режим: " .. settings.espMode, yPos, function()
             local modes = {"Имена", "Роли", "Расстояние"}
             local idx = table.find(modes, settings.espMode) or 1
             settings.espMode = modes[idx % #modes + 1]
             btn.Text = "Режим: " .. settings.espMode
             updateESP()
         end)
-        createSlider("Прозрачность", 0.22, 1, 10, 5, function(v) settings.espTransparency = v / 10 updateESP() end)
-    elseif funcName == "Silent Aim" then
-        createBtn("Цель: " .. settings.silentAimTarget, 0.12, function()
-            local targets = {"All", "Murderer", "Sheriff", "Innocent"}
-            local idx = table.find(targets, settings.silentAimTarget) or 1
-            settings.silentAimTarget = targets[idx % #targets + 1]
-            btn.Text = "Цель: " .. settings.silentAimTarget
+        yPos = yPos + 0.1
+        createSlider("Прозрачность", yPos, 1, 10, settings.espTransparency * 10, function(v) 
+            settings.espTransparency = v / 10
+            updateESP()
         end)
-        createSlider("Радиус", 0.22, 50, 300, 150, function(v) settings.silentAimRange = v end)
     elseif funcName == "Hitbox" then
-        createSlider("Размер", 0.12, 1, 20, settings.hitboxSize, function(v) settings.hitboxSize = v end)
-        createBtn("Сбросить", 0.22, function()
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    for _, part in ipairs(plr.Character:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            part.Size = Vector3.new(2, 2, 1)
+        createSlider("Размер", yPos, 1, 20, settings.hitboxSize, function(v) 
+            settings.hitboxSize = v
+            if toggles.hitbox then
+                for _, plr in ipairs(game.Players:GetPlayers()) do
+                    if plr ~= player and plr.Character then
+                        for _, part in ipairs(plr.Character:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                part.Size = Vector3.new(v, v, v)
+                            end
                         end
                     end
                 end
             end
         end)
     elseif funcName == "Wall Hop" then
-        createSlider("Скорость", 0.12, 50, 500, settings.wallHopSpeed, function(v) settings.wallHopSpeed = v end)
+        createSlider("Скорость", yPos, 50, 500, settings.wallHopSpeed, function(v) settings.wallHopSpeed = v end)
     elseif funcName == "Speed Glitch" then
-        createSlider("Скорость", 0.12, 20, 300, settings.speedGlitch, function(v) settings.speedGlitch = v end)
+        createSlider("Скорость", yPos, 20, 300, settings.speedGlitch, function(v) settings.speedGlitch = v end)
     elseif funcName == "Auto Collect" then
-        createSlider("Радиус", 0.12, 10, 100, settings.autoCollectRange, function(v) settings.autoCollectRange = v end)
-    elseif funcName == "Teleport" then
-        createBtn("К ближайшему", 0.12, function()
-            local target = nil
-            local dist = math.huge
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local d = (plr.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    if d < dist then
-                        target = plr
-                        dist = d
-                    end
-                end
-            end
-            if target and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
-            end
-        end)
-        createBtn("К случайному", 0.22, function()
-            local players = {}
-            for _, plr in ipairs(game.Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    table.insert(players, plr)
-                end
-            end
-            if #players > 0 then
-                local target = players[math.random(1, #players)]
-                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    player.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 2, 0)
-                end
-            end
-        end)
+        createSlider("Радиус", yPos, 10, 100, settings.autoCollectRange, function(v) settings.autoCollectRange = v end)
     elseif funcName == "Fling" then
-        createBtn("Цель: " .. settings.flingTarget, 0.12, function()
-            local targets = {"All", "Murderer", "Sheriff", "Innocent"}
-            local idx = table.find(targets, settings.flingTarget) or 1
-            settings.flingTarget = targets[idx % #targets + 1]
-            btn.Text = "Цель: " .. settings.flingTarget
-        end)
-        createSlider("Сила", 0.22, 100, 5000, settings.flingPower, function(v) settings.flingPower = v end)
-    elseif funcName == "Ban" then
-        createBtn("Тип: " .. settings.banType, 0.12, function()
-            local types = {"Kick", "Ban", "ESC"}
-            local idx = table.find(types, settings.banType) or 1
-            settings.banType = types[idx % #types + 1]
-            btn.Text = "Тип: " .. settings.banType
-        end)
+        createSlider("Сила", yPos, 100, 5000, settings.flingPower, function(v) settings.flingPower = v end)
     end
 end
 
--- ===== ФУНКЦИИ =====
-function toggleSilentAim(s) toggles.silentAim = s end
-function toggleHitbox(s) toggles.hitbox = s end
-function toggleAntiAFK(s) toggles.antiAFK = s end
-function toggleAutoCollect(s) toggles.autoCollect = s end
-function toggleKillAll(s) toggles.killAll = s end
-function toggleWallHop(s) toggles.wallHop = s end
-function toggleSpeedGlitch(s) toggles.speedGlitch = s end
-function toggleTeleportToPlayer(s) toggles.teleportToPlayer = s end
-function toggleFlingPlayer(s) toggles.flingPlayer = s end
-function toggleBanPlayer(s) toggles.banPlayer = s end
-
 -- ===== ГЛАВНОЕ МЕНЮ =====
 local function createMenu()
-    if gui then 
-        gui:Destroy() 
-        gui = nil 
-    end
-    
+    if gui then gui:Destroy() end
     gui = Instance.new("ScreenGui")
     gui.Name = "KabancikHubGUI"
     gui.Parent = game.CoreGui
     gui.ResetOnSpawn = false
 
     local main = Instance.new("Frame")
-    main.Size = UDim2.new(0, 350, 0, 450)
-    main.Position = UDim2.new(0.5, -175, 0.5, -225)
+    main.Size = UDim2.new(0, 350, 0, 480)
+    main.Position = UDim2.new(0.5, -175, 0.5, -240)
     main.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
     main.BackgroundTransparency = 0.1
     main.BorderSizePixel = 2
@@ -339,9 +338,7 @@ local function createMenu()
     close.TextScaled = true
     close.Font = Enum.Font.GothamBold
     close.Parent = title
-    close.MouseButton1Click:Connect(function() 
-        if gui then gui:Destroy() gui = nil end
-    end)
+    close.MouseButton1Click:Connect(function() gui:Destroy() end)
 
     local function createBtn(text, y, func)
         local btn = Instance.new("TextButton")
@@ -371,7 +368,7 @@ local function createMenu()
         end)
         
         btn.MouseButton2Click:Connect(function()
-            local name = text:gsub("👁️ ", ""):gsub("🎯 ", ""):gsub("📦 ", ""):gsub("💤 ", ""):gsub("💰 ", ""):gsub("💀 ", ""):gsub("🧱 ", ""):gsub("⚡ ", ""):gsub("👤 ", ""):gsub("🌀 ", ""):gsub("🚫 ", "")
+            local name = text:gsub("👁️ ", ""):gsub("🎯 ", ""):gsub("📦 ", ""):gsub("💤 ", ""):gsub("💰 ", ""):gsub("💀 ", ""):gsub("🧱 ", ""):gsub("⚡ ", ""):gsub("👤 ", ""):gsub("🌀 ", ""):gsub("🚫 ", ""):gsub("👻 ", "")
             createMiniMenu(name, mouse.X, mouse.Y)
         end)
         return btn
@@ -388,12 +385,12 @@ local function createMenu()
     createBtn("👤 Teleport", 0.72, toggleTeleportToPlayer)
     createBtn("🌀 Fling", 0.80, toggleFlingPlayer)
     createBtn("🚫 Ban", 0.88, toggleBanPlayer)
+    createBtn("👻 Invisible", 0.96, toggleInvisible)
 
     print("✅ KABANCIK HUB загружен!")
-    print("✅ Нажми ПРАВЫЙ SHIFT для открытия меню")
 end
 
--- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT (ИСПРАВЛЕНО) =====
+-- ===== ОТКРЫТИЕ ПО ПРАВОМУ SHIFT =====
 uis.InputBegan:Connect(function(input)
     if input.KeyCode == Enum.KeyCode.RightShift then
         if gui and gui.Parent then
@@ -405,7 +402,6 @@ uis.InputBegan:Connect(function(input)
     end
 end)
 
--- Автоматическое открытие меню
+-- Автоматическое открытие
 createMenu()
-
 print("✅ KABANCIK HUB готов! ЛКМ - включить, ПКМ - настройки")
