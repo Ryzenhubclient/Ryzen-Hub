@@ -1,9 +1,9 @@
--- RYZEN HUB [MMV] - БЕЗ БИНДОВ
+-- RYZEN HUB - ТОЧНАЯ КОПИЯ KITAGAWAHUB C BUNNY HOP
 local player = game.Players.LocalPlayer
 local mouse = player:GetMouse()
 
 local settings = {
-    speedglitch = 100,
+    bunnyhop = 100,
     flyspeed = 50,
     jumppower = 120,
     spinSpeed = 10,
@@ -12,7 +12,7 @@ local settings = {
 local toggles = {
     esp = false,
     triggerbot = false,
-    speedglitch = false,
+    bunnyhop = false,
     jump = false,
     noclip = false,
     teleport = false,
@@ -29,7 +29,7 @@ local fpsLabel = nil
 
 -- Подключения
 local noclipActive, noclipStartTime, noclipConnection = false, 0, nil
-local triggerbotConnection, speedGlitchConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
+local triggerbotConnection, bunnyHopConnection, spinConnection, flingConnection, flyConnection = nil, nil, nil, nil, nil
 
 -- ===== МИНИ-МЕНЮ ИГРОКОВ =====
 local function togglePlayerList()
@@ -207,24 +207,24 @@ local function toggleTriggerBot(state)
     end
 end
 
--- ===== SPEED GLITCH =====
-local function toggleSpeedGlitch(state)
-    toggles.speedglitch = state
+-- ===== BUNNY HOP =====
+local function toggleBunnyHop(state)
+    toggles.bunnyhop = state
     if state then
-        if speedGlitchConnection then speedGlitchConnection:Disconnect() end
-        speedGlitchConnection = game:GetService("RunService").Stepped:Connect(function()
-            if not toggles.speedglitch then return end
+        if bunnyHopConnection then bunnyHopConnection:Disconnect() end
+        bunnyHopConnection = game:GetService("RunService").Stepped:Connect(function()
+            if not toggles.bunnyhop then return end
             if player.Character and player.Character:FindFirstChild("Humanoid") then
                 local humanoid = player.Character.Humanoid
                 if humanoid:GetState() == Enum.HumanoidStateType.Jumping then
-                    humanoid.WalkSpeed = settings.speedglitch
+                    humanoid.WalkSpeed = settings.bunnyhop
                 else
                     humanoid.WalkSpeed = 16
                 end
             end
         end)
     else
-        if speedGlitchConnection then speedGlitchConnection:Disconnect() end
+        if bunnyHopConnection then bunnyHopConnection:Disconnect() end
         if player.Character and player.Character:FindFirstChild("Humanoid") then
             player.Character.Humanoid.WalkSpeed = 16
         end
@@ -344,31 +344,29 @@ end
 
 local function toggleFly(state)
     toggles.fly = state
-    if player.Character and player.Character:FindFirstChild("Humanoid") then
-        local humanoid = player.Character.Humanoid
-        if state then
-            humanoid.PlatformStand = true
-            if flyConnection then flyConnection:Disconnect() end
-            flyConnection = game:GetService("RunService").Stepped:Connect(function()
-                if not toggles.fly then 
-                    if flyConnection then flyConnection:Disconnect() end
-                    return 
-                end
-                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                    local root = player.Character.HumanoidRootPart
-                    local moveDir = Vector3.new(0, 0, 0)
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + root.CFrame.LookVector end
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - root.CFrame.LookVector end
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - root.CFrame.RightVector end
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + root.CFrame.RightVector end
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
-                    if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
-                    root.Velocity = moveDir * settings.flyspeed
-                end
-            end)
-        else
-            humanoid.PlatformStand = false
-            if flyConnection then flyConnection:Disconnect() end
+    if state then
+        if flyConnection then flyConnection:Disconnect() end
+        flyConnection = game:GetService("RunService").Stepped:Connect(function()
+            if not toggles.fly then 
+                if flyConnection then flyConnection:Disconnect() end
+                return 
+            end
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local root = player.Character.HumanoidRootPart
+                local moveDir = Vector3.new(0, 0, 0)
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + root.CFrame.LookVector end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - root.CFrame.LookVector end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - root.CFrame.RightVector end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + root.CFrame.RightVector end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+                if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+                root.Velocity = moveDir * settings.flyspeed
+            end
+        end)
+    else
+        if flyConnection then flyConnection:Disconnect() end
+        if player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.PlatformStand = false
         end
     end
 end
@@ -447,7 +445,7 @@ local function toggleFps(state)
     end
 end
 
--- ===== ГЛАВНОЕ МЕНЮ =====
+-- ===== ГЛАВНОЕ МЕНЮ (ТОЧНАЯ КОПИЯ KITAGAWAHUB) =====
 local function createRyzenHub()
     if game.CoreGui:FindFirstChild("RyzenHubGUI") then
         game.CoreGui.RyzenHubGUI:Destroy()
@@ -459,49 +457,46 @@ local function createRyzenHub()
     screenGui.ResetOnSpawn = false
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 480, 0, 620)
-    mainFrame.Position = UDim2.new(0.5, -240, 0.5, -310)
+    mainFrame.Size = UDim2.new(0, 450, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -225, 0.5, -250)
     mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BackgroundTransparency = 0.15
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.Draggable = true
     mainFrame.Parent = screenGui
 
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
-    corner.Parent = mainFrame
-
+    -- Заголовок КАК В KITAGAWAHUB
     local titleFrame = Instance.new("Frame")
-    titleFrame.Size = UDim2.new(1, 0, 0, 55)
+    titleFrame.Size = UDim2.new(1, 0, 0, 45)
+    titleFrame.Position = UDim2.new(0, 0, 0, 0)
     titleFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
     titleFrame.BorderSizePixel = 0
     titleFrame.Parent = mainFrame
 
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 12)
-    titleCorner.Parent = titleFrame
-
+    -- Логотип Ryzen (вместо капучино)
     local logo = Instance.new("ImageLabel")
-    logo.Size = UDim2.new(0, 40, 0, 40)
+    logo.Size = UDim2.new(0, 35, 0, 35)
     logo.Position = UDim2.new(0.02, 0, 0.1, 0)
     logo.BackgroundTransparency = 1
     logo.Image = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/AMD_Ryzen_logo.svg/120px-AMD_Ryzen_logo.svg.png"
     logo.Parent = titleFrame
 
+    -- Название
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -60, 1, 0)
-    title.Position = UDim2.new(0, 60, 0, 0)
+    title.Size = UDim2.new(1, -50, 1, 0)
+    title.Position = UDim2.new(0, 50, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "RYZEN HUB [MMV]"
-    title.TextColor3 = Color3.fromRGB(255, 70, 70)
+    title.Text = "RYZEN HUB"
+    title.TextColor3 = Color3.fromRGB(255, 80, 80)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = titleFrame
 
+    -- Кнопка закрытия
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -40, 0, 12)
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -36, 0, 8)
     closeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
     closeBtn.BorderSizePixel = 0
     closeBtn.Text = "✕"
@@ -511,11 +506,12 @@ local function createRyzenHub()
     closeBtn.Parent = titleFrame
     closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
+    -- Функция создания кнопки (КАК В KITAGAWAHUB)
     local function createButton(text, yPos, callback)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.85, 0, 0, 32)
+        btn.Size = UDim2.new(0.85, 0, 0, 34)
         btn.Position = UDim2.new(0.075, 0, yPos, 0)
-        btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
         btn.BorderSizePixel = 0
         btn.Text = text
         btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -523,18 +519,14 @@ local function createRyzenHub()
         btn.Font = Enum.Font.Gotham
         btn.Parent = mainFrame
 
-        local btnCorner = Instance.new("UICorner")
-        btnCorner.CornerRadius = UDim.new(0, 6)
-        btnCorner.Parent = btn
-
         local isActive = false
         btn.MouseButton1Click:Connect(function()
             isActive = not isActive
             if isActive then
-                btn.BackgroundColor3 = Color3.fromRGB(80, 80, 85)
-                btn.TextColor3 = Color3.fromRGB(255, 100, 100)
+                btn.BackgroundColor3 = Color3.fromRGB(75, 75, 80)
+                btn.TextColor3 = Color3.fromRGB(255, 120, 120)
             else
-                btn.BackgroundColor3 = Color3.fromRGB(55, 55, 60)
+                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
                 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
             end
             callback(isActive)
@@ -543,17 +535,14 @@ local function createRyzenHub()
         return btn
     end
 
+    -- Функция создания слайдера (КАК В KITAGAWAHUB)
     local function createSlider(text, yPos, minVal, maxVal, defaultVal, callback)
         local frame = Instance.new("Frame")
         frame.Size = UDim2.new(0.85, 0, 0, 30)
         frame.Position = UDim2.new(0.075, 0, yPos, 0)
-        frame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
         frame.BorderSizePixel = 0
         frame.Parent = mainFrame
-
-        local frameCorner = Instance.new("UICorner")
-        frameCorner.CornerRadius = UDim.new(0, 6)
-        frameCorner.Parent = frame
 
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(0.4, 0, 1, 0)
@@ -576,10 +565,6 @@ local function createRyzenHub()
         slider.Font = Enum.Font.Gotham
         slider.Parent = frame
 
-        local sliderCorner = Instance.new("UICorner")
-        sliderCorner.CornerRadius = UDim.new(0, 6)
-        sliderCorner.Parent = slider
-
         local value = defaultVal
         slider.MouseButton1Click:Connect(function()
             local newVal = value + 10
@@ -591,52 +576,43 @@ local function createRyzenHub()
         return slider
     end
 
-    local function createSection(title, yPos)
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0.85, 0, 0, 20)
-        label.Position = UDim2.new(0.075, 0, yPos, 0)
-        label.BackgroundTransparency = 1
-        label.Text = "=== " .. title .. " ==="
-        label.TextColor3 = Color3.fromRGB(255, 200, 100)
-        label.TextScaled = true
-        label.Font = Enum.Font.GothamBold
-        label.Parent = mainFrame
-        return label
-    end
-
-    -- РАЗДЕЛЫ
-    createSection("MOVEMENT", 0.04)
-    createButton("⚡ Speed Glitch", 0.09, toggleSpeedGlitch)
-    createButton("🦘 Super Jump", 0.14, toggleJump)
-    createButton("✈️ Fly", 0.19, toggleFly)
-    createButton("🌀 Noclip [24ч]", 0.24, toggleNoclip)
-    createButton("📍 Teleport", 0.29, toggleTeleport)
-
-    createSection("COMBAT", 0.34)
-    createButton("🎯 Trigger Bot", 0.39, toggleTriggerBot)
-    createButton("🔫 Забрать оружие", 0.44, toggleAutoCollectGun)
-
-    createSection("ESP", 0.49)
-    createButton("👁️ ESP [M🔴 S🔵 I🟢]", 0.54, function(state)
+    -- КНОПКИ (КАК В KITAGAWAHUB)
+    createButton("👁️ ESP (ВКЛ)", 0.12, function(state)
         toggles.esp = state
         updateESP()
     end)
-
-    createSection("TROLL / FLINGING", 0.59)
-    createButton("🔄 Spin Bot", 0.64, toggleSpinBot)
-    createButton("💥 Fling", 0.69, toggleFling)
-    createButton("👥 Список игроков", 0.74, function()
-        togglePlayerList()
+    createButton("🔴 Murderer", 0.20, function(state) 
+        toggles.showMurderer = state 
     end)
-
-    createSection("OTHER", 0.79)
-    createButton("📊 FPS", 0.84, toggleFps)
-
-    createSlider("⚡ Speed", 0.90, 20, 300, settings.speedglitch, function(val)
-        settings.speedglitch = val
+    createButton("🟢 Sheriff", 0.28, function(state) 
+        toggles.showSheriff = state 
     end)
-    createSlider("🔄 Spin Speed", 0.95, 1, 50, settings.spinSpeed, function(val)
-        settings.spinSpeed = val
+    createButton("⚪ Innocent", 0.36, function(state) 
+        toggles.showInnocent = state 
+    end)
+    createButton("🎯 Trigger Bot", 0.44, toggleTriggerBot)
+    createButton("🐇 Bunny Hop", 0.52, toggleBunnyHop)
+    createButton("🦘 Super Jump", 0.60, toggleJump)
+    createButton("🌀 Noclip", 0.68, toggleNoclip)
+    createButton("📍 Teleport", 0.76, toggleTeleport)
+    createButton("✈️ Fly", 0.84, toggleFly)
+    createButton("🔫 Забрать оружие", 0.92, toggleAutoCollectGun)
+
+    -- СЛАЙДЕРЫ (КАК В KITAGAWAHUB)
+    createSlider("🐇 Bunny Hop Speed", 1.00, 20, 300, settings.bunnyhop, function(val)
+        settings.bunnyhop = val
+        if toggles.bunnyhop and player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.WalkSpeed = val
+        end
+    end)
+    createSlider("✈️ Fly Speed", 1.08, 10, 200, settings.flyspeed, function(val)
+        settings.flyspeed = val
+    end)
+    createSlider("🦘 Jump Power", 1.16, 50, 300, settings.jumppower, function(val)
+        settings.jumppower = val
+        if toggles.jump and player.Character and player.Character:FindFirstChild("Humanoid") then
+            player.Character.Humanoid.JumpPower = val
+        end
     end)
 
     print("✅ Ryzen Hub загружен!")
