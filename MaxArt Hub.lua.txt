@@ -1,0 +1,1148 @@
+-- MaxArt Hub.lua (LocalScript) - ИСПРАВЛЕННАЯ ВЕРСИЯ (БЕЗ ОШИБОК)
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+
+print("=== MaxArt Hub ЗАГРУЖАЕТСЯ ===")
+
+-- ---- ПЛАВНОЕ ПЕРЕТАСКИВАНИЕ ----
+local function MakeDraggable(object)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    object.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = object.Position
+        end
+    end)
+    
+    object.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            local newPos = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+            
+            local tween = TweenService:Create(object, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = newPos
+            })
+            tween:Play()
+        end
+    end)
+end
+
+-- ---- ТЕЛЕПОРТ К ИГРОКУ ----
+local function TeleportToPlayer(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then
+        print("❌ Игрок не найден!")
+        return
+    end
+    
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then
+        print("❌ HumanoidRootPart не найден!")
+        return
+    end
+    
+    local playerChar = Player.Character
+    if not playerChar then
+        print("❌ Ваш персонаж не найден!")
+        return
+    end
+    
+    local root = playerChar:FindFirstChild("HumanoidRootPart")
+    if not root then
+        print("❌ HumanoidRootPart не найден!")
+        return
+    end
+    
+    root.CFrame = targetRoot.CFrame * CFrame.new(0, 2, 3)
+    print("✅ Телепорт к " .. targetPlayer.Name)
+end
+
+-- ---- SPEED GLITCH ----
+local speedGlitchEnabled = false
+local speedGlitchConnection = nil
+
+local function toggleSpeedGlitch(s)
+    speedGlitchEnabled = s
+    if speedGlitchConnection then speedGlitchConnection:Disconnect() speedGlitchConnection = nil end
+    if not s then 
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") then
+            Player.Character.Humanoid.WalkSpeed = 16
+        end
+        return 
+    end
+    
+    speedGlitchConnection = RunService.Heartbeat:Connect(function()
+        local char = Player.Character
+        if not char then return end
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not humanoid then return end
+        
+        if humanoid:GetState() == Enum.HumanoidStateType.Jumping or 
+           humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+            humanoid.WalkSpeed = 100
+        else
+            humanoid.WalkSpeed = 16
+        end
+    end)
+end
+
+-- ---- NO CLIP ----
+local function toggleNoClip(s)
+    local char = Player.Character
+    if not char then return end
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.CanCollide = not s
+        end
+    end
+end
+
+-- ---- НАСТРОЙКИ НЕБА И ТУМАНА (ИСПРАВЛЕНЫ) ----
+local skyEnabled = false
+local skyColor = Color3.fromRGB(200, 220, 255)
+local fogEnabled = false
+local fogColor = Color3.fromRGB(180, 200, 220)
+local fogDensity = 30
+
+-- Сохраняем оригинальные настройки
+local originalFogColor = Lighting.FogColor
+local originalFogEnd = Lighting.FogEnd
+local originalAmbient = Lighting.Ambient
+local originalBrightness = Lighting.Brightness
+
+local function UpdateSky()
+    if skyEnabled then
+        -- Создаем новый Sky
+        local sky = Instance.new("Sky")
+        sky.Name = "MaxArtSky"
+        sky.SkyboxBk = skyColor
+        sky.SkyboxDn = skyColor
+        sky.SkyboxFt = skyColor
+        sky.SkyboxLf = skyColor
+        sky.SkyboxRt = skyColor
+        sky.SkyboxUp = skyColor
+        sky.Parent = Lighting
+        
+        -- Удаляем старый созданный Sky
+        for _, child in ipairs(Lighting:GetChildren()) do
+            if child:IsA("Sky") and child.Name == "MaxArtSky" and child ~= sky then
+                child:Destroy()
+            end
+        end
+        
+        Lighting.Ambient = skyColor
+        Lighting.Brightness = 1.2
+    else
+        -- Удаляем созданный Sky
+        for _, child in ipairs(Lighting:GetChildren()) do
+            if child:IsA("Sky") and child.Name == "MaxArtSky" then
+                child:Destroy()
+            end
+        end
+        Lighting.Ambient = originalAmbient
+        Lighting.Brightness = originalBrightness
+    end
+end
+
+local function UpdateFog()
+    if fogEnabled then
+        Lighting.FogColor = fogColor
+        Lighting.FogEnd = fogDensity * 15
+        Lighting.FogStart = 0
+    else
+        Lighting.FogColor = originalFogColor
+        Lighting.FogEnd = originalFogEnd
+        Lighting.FogStart = 0
+    end
+end
+
+-- ---- ESP ----
+local espEnabled = false
+local espObjects = {}
+local espConnection = nil
+
+local function getRole(plr)
+    if not plr or not plr.Character then return "Innocent" end
+    local char = plr.Character
+    
+    if char:FindFirstChild("NameTag") then
+        local nameTag = char.NameTag
+        if nameTag:FindFirstChild("Role") then
+            local role = nameTag.Role.Value
+            if role == "Murderer" or role == "M" then return "Murderer" end
+            if role == "Sheriff" or role == "S" then return "Sheriff" end
+        end
+    end
+    
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local n = tool.Name:lower()
+            if n:find("knife") or n:find("dagger") or n:find("blade") then return "Murderer" end
+            if n:find("gun") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+        end
+    end
+    
+    if plr.Backpack then
+        for _, tool in ipairs(plr.Backpack:GetChildren()) do
+            local n = tool.Name:lower()
+            if n:find("knife") or n:find("dagger") or n:find("blade") then return "Murderer" end
+            if n:find("gun") or n:find("pistol") or n:find("revolver") then return "Sheriff" end
+        end
+    end
+    
+    return "Innocent"
+end
+
+local function getRoleColor(role)
+    if role == "Murderer" then return Color3.fromRGB(255, 0, 0) end
+    if role == "Sheriff" then return Color3.fromRGB(0, 100, 255) end
+    return Color3.fromRGB(0, 255, 0)
+end
+
+function toggleESP(s) 
+    espEnabled = s 
+    if espConnection then espConnection:Disconnect() espConnection = nil end
+    if s then
+        espConnection = RunService.RenderStepped:Connect(updateESP)
+    else
+        for _, v in pairs(espObjects) do pcall(function() v:Destroy() end) end
+        espObjects = {}
+    end
+end
+
+function updateESP()
+    for _, v in pairs(espObjects) do pcall(function() v:Destroy() end) end
+    espObjects = {}
+    if not espEnabled then return end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local role = getRole(plr)
+            local color = getRoleColor(role)
+            local root = plr.Character.HumanoidRootPart
+
+            local highlight = Instance.new("Highlight")
+            highlight.Parent = plr.Character
+            highlight.FillColor = color
+            highlight.FillTransparency = 0.3
+            highlight.OutlineColor = color
+            highlight.OutlineTransparency = 0.2
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Adornee = plr.Character
+            table.insert(espObjects, highlight)
+
+            local billboard = Instance.new("BillboardGui")
+            billboard.Size = UDim2.new(0, 200, 0, 50)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = root
+            billboard.Adornee = root
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.MaxDistance = 150
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 0.6, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = color
+            label.TextScaled = true
+            label.Font = Enum.Font.GothamBold
+            label.Text = plr.Name
+            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            label.TextStrokeTransparency = 0.3
+            label.Parent = billboard
+            table.insert(espObjects, billboard)
+
+            local roleBillboard = Instance.new("BillboardGui")
+            roleBillboard.Size = UDim2.new(0, 100, 0, 25)
+            roleBillboard.AlwaysOnTop = true
+            roleBillboard.Parent = root
+            roleBillboard.Adornee = root
+            roleBillboard.StudsOffset = Vector3.new(0, 4.5, 0)
+            roleBillboard.MaxDistance = 100
+
+            local roleLabel = Instance.new("TextLabel")
+            roleLabel.Size = UDim2.new(1, 0, 1, 0)
+            roleLabel.BackgroundTransparency = 1
+            roleLabel.TextColor3 = color
+            roleLabel.Text = "[" .. role .. "]"
+            roleLabel.TextScaled = true
+            roleLabel.Font = Enum.Font.GothamBold
+            roleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            roleLabel.TextStrokeTransparency = 0.3
+            roleLabel.Parent = roleBillboard
+            table.insert(espObjects, roleBillboard)
+        end
+    end
+end
+
+-- ---- МЕНЮ ИГРОКОВ ----
+local PlayersMenu = nil
+local PlayersMenuOpen = false
+
+function CreatePlayersMenu()
+    if PlayersMenu then 
+        PlayersMenu:Destroy() 
+        PlayersMenu = nil
+        PlayersMenuOpen = false
+        return
+    end
+    
+    PlayersMenuOpen = true
+    PlayersMenu = Instance.new("ScreenGui")
+    PlayersMenu.Name = "PlayersMenu"
+    PlayersMenu.Parent = Player:WaitForChild("PlayerGui")
+    PlayersMenu.ResetOnSpawn = false
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 320, 0, 350)
+    frame.Position = UDim2.new(0.5, -160, 0.5, -175)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    frame.BackgroundTransparency = 0.1
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(0, 200, 255)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = PlayersMenu
+    MakeDraggable(frame)
+    
+    local title = Instance.new("Frame")
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundColor3 = Color3.fromRGB(0, 30, 50)
+    title.BorderSizePixel = 0
+    title.Parent = frame
+    
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = "👥 Игроки"
+    txt.TextColor3 = Color3.fromRGB(0, 200, 255)
+    txt.TextScaled = true
+    txt.Font = Enum.Font.GothamBold
+    txt.Parent = title
+    
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 25, 0, 25)
+    close.Position = UDim2.new(1, -30, 0, 3)
+    close.BackgroundColor3 = Color3.fromRGB(80, 0, 80)
+    close.BorderSizePixel = 0
+    close.Text = "✕"
+    close.TextColor3 = Color3.fromRGB(255, 255, 255)
+    close.TextScaled = true
+    close.Font = Enum.Font.GothamBold
+    close.Parent = title
+    close.MouseButton1Click:Connect(function()
+        if PlayersMenu then PlayersMenu:Destroy() PlayersMenu = nil end
+        PlayersMenuOpen = false
+    end)
+    
+    local listFrame = Instance.new("ScrollingFrame")
+    listFrame.Size = UDim2.new(1, 0, 1, -30)
+    listFrame.Position = UDim2.new(0, 0, 0, 30)
+    listFrame.BackgroundTransparency = 1
+    listFrame.BorderSizePixel = 0
+    listFrame.ScrollBarThickness = 5
+    listFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+    listFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    listFrame.Parent = frame
+    
+    local function UpdatePlayerList()
+        for _, child in ipairs(listFrame:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        
+        local players = Players:GetPlayers()
+        local yPos = 3
+        
+        for i, plr in ipairs(players) do
+            local isSelf = (plr == Player)
+            
+            local playerBtn = Instance.new("TextButton")
+            playerBtn.Size = UDim2.new(1, -6, 0, 40)
+            playerBtn.Position = UDim2.new(0, 3, 0, yPos)
+            playerBtn.BackgroundColor3 = isSelf and Color3.fromRGB(40, 40, 60) or Color3.fromRGB(25, 25, 40)
+            playerBtn.BorderSizePixel = 1
+            playerBtn.BorderColor3 = isSelf and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(50, 50, 70)
+            playerBtn.Text = ""
+            playerBtn.Parent = listFrame
+            
+            local avatar = Instance.new("ImageLabel")
+            avatar.Size = UDim2.new(0, 30, 0, 30)
+            avatar.Position = UDim2.new(0, 5, 0, 5)
+            avatar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+            avatar.BorderSizePixel = 1
+            avatar.BorderColor3 = Color3.fromRGB(60, 60, 80)
+            avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. plr.UserId .. "&w=100&h=100"
+            avatar.Parent = playerBtn
+            
+            local avatarCorner = Instance.new("UICorner")
+            avatarCorner.CornerRadius = UDim.new(0, 4)
+            avatarCorner.Parent = avatar
+            
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(0, 120, 0, 18)
+            nameLabel.Position = UDim2.new(0, 42, 0, 3)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = plr.Name
+            nameLabel.TextColor3 = isSelf and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(255, 255, 255)
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.TextScaled = true
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.Parent = playerBtn
+            
+            local role = getRole(plr)
+            local roleColor = getRoleColor(role)
+            local roleLabel = Instance.new("TextLabel")
+            roleLabel.Size = UDim2.new(0, 70, 0, 15)
+            roleLabel.Position = UDim2.new(0, 42, 0, 22)
+            roleLabel.BackgroundTransparency = 1
+            roleLabel.Text = role
+            roleLabel.TextColor3 = roleColor
+            roleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            roleLabel.TextScaled = true
+            roleLabel.Font = Enum.Font.GothamMedium
+            roleLabel.Parent = playerBtn
+            
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0, 40, 0, 22)
+            tpBtn.Position = UDim2.new(1, -48, 0, 9)
+            tpBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+            tpBtn.BorderSizePixel = 0
+            tpBtn.Text = "ТП"
+            tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            tpBtn.TextScaled = true
+            tpBtn.Font = Enum.Font.GothamBold
+            tpBtn.Parent = playerBtn
+            
+            local tpCorner = Instance.new("UICorner")
+            tpCorner.CornerRadius = UDim.new(0, 4)
+            tpCorner.Parent = tpBtn
+            
+            tpBtn.MouseButton1Click:Connect(function()
+                TeleportToPlayer(plr)
+            end)
+            
+            playerBtn.MouseButton1Click:Connect(function()
+                if not isSelf then
+                    TeleportToPlayer(plr)
+                end
+            end)
+            
+            if not plr.Character then
+                playerBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                nameLabel.TextColor3 = Color3.fromRGB(100, 100, 100)
+                tpBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+                tpBtn.Text = "❌"
+            end
+            
+            if isSelf then
+                local youLabel = Instance.new("TextLabel")
+                youLabel.Size = UDim2.new(0, 30, 0, 15)
+                youLabel.Position = UDim2.new(1, -90, 0, 13)
+                youLabel.BackgroundTransparency = 1
+                youLabel.Text = "(Вы)"
+                youLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+                youLabel.TextScaled = true
+                youLabel.Font = Enum.Font.GothamBold
+                youLabel.Parent = playerBtn
+            end
+            
+            yPos = yPos + 44
+        end
+        
+        listFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 5)
+    end
+    
+    UpdatePlayerList()
+    
+    Players.PlayerAdded:Connect(UpdatePlayerList)
+    Players.PlayerRemoving:Connect(UpdatePlayerList)
+    
+    spawn(function()
+        while PlayersMenu and PlayersMenu.Parent do
+            task.wait(2)
+            if PlayersMenu and PlayersMenu.Parent then
+                UpdatePlayerList()
+            end
+        end
+    end)
+end
+
+-- ---- СОЗДАНИЕ GUI ----
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MaxArtHub"
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- ---- КНОПКА ОТКРЫТИЯ ----
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 180, 0, 40)
+ToggleButton.Position = UDim2.new(0.5, -90, 0, 10)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+ToggleButton.BorderColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.BorderSizePixel = 2
+ToggleButton.Text = "☰ MaxArt Hub"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextScaled = true
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = ScreenGui
+MakeDraggable(ToggleButton)
+
+-- ---- ОСНОВНОЕ ОКНО ----
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 500, 0, 520)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -260)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BorderColor3 = Color3.fromRGB(60, 60, 80)
+MainFrame.BorderSizePixel = 2
+MainFrame.Visible = false
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+MakeDraggable(MainFrame)
+
+-- ---- ЗАГОЛОВОК ----
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+Title.BorderSizePixel = 0
+Title.Text = "MaxArt Hub [MM2]"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- ---- КНОПКА ЗАКРЫТИЯ ----
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
+CloseBtn.Position = UDim2.new(1, -40, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 20)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextScaled = true
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+
+-- ---- ВКЛАДКИ ----
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, 0, 0, 40)
+TabContainer.Position = UDim2.new(0, 0, 0, 40)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local Tabs = {"Main", "Fun", "Misc", "Visuals", "Troll"}
+local TabButtons = {}
+for i, name in ipairs(Tabs) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.2, -2, 1, -2)
+    btn.Position = UDim2.new((i-1)*0.2, 0, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamMedium
+    btn.Parent = TabContainer
+    TabButtons[name] = btn
+end
+
+TabButtons["Troll"].BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+TabButtons["Troll"].TextColor3 = Color3.fromRGB(255, 100, 100)
+
+-- ---- КОНТЕНТ ----
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Size = UDim2.new(1, 0, 1, -80)
+ContentFrame.Position = UDim2.new(0, 0, 0, 80)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, 0)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.ScrollBarThickness = 6
+ScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 120)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.Parent = ContentFrame
+
+-- ---- ФУНКЦИЯ СОЗДАНИЯ ПЕРЕКЛЮЧАТЕЛЯ ----
+local function CreateToggle(parent, title, yPos, defaultState, callback)
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, -20, 0, 35)
+    holder.Position = UDim2.new(0, 10, 0, yPos)
+    holder.BackgroundTransparency = 1
+    holder.Parent = parent
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamMedium
+    label.Parent = holder
+    
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0, 50, 0, 25)
+    toggleBtn.Position = UDim2.new(0.7, 0, 0.5, -12.5)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Text = ""
+    toggleBtn.Parent = holder
+    
+    local toggleCircle = Instance.new("Frame")
+    toggleCircle.Size = UDim2.new(0, 21, 0, 21)
+    toggleCircle.Position = UDim2.new(0, 2, 0.5, -10.5)
+    toggleCircle.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    toggleCircle.BorderSizePixel = 0
+    toggleCircle.Parent = toggleBtn
+    
+    local UICornerBg = Instance.new("UICorner")
+    UICornerBg.CornerRadius = UDim.new(0, 12)
+    UICornerBg.Parent = toggleBtn
+    
+    local UICornerCircle = Instance.new("UICorner")
+    UICornerCircle.CornerRadius = UDim.new(0, 11)
+    UICornerCircle.Parent = toggleCircle
+    
+    local isOn = defaultState or false
+    
+    local function UpdateToggle()
+        if isOn then
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+            local tween = TweenService:Create(toggleCircle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, 27, 0.5, -10.5)
+            })
+            tween:Play()
+        else
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+            local tween = TweenService:Create(toggleCircle, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                Position = UDim2.new(0, 2, 0.5, -10.5)
+            })
+            tween:Play()
+        end
+    end
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        UpdateToggle()
+        if callback then
+            callback(isOn)
+        end
+    end)
+    
+    if defaultState then
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+        toggleCircle.Position = UDim2.new(0, 27, 0.5, -10.5)
+    end
+    
+    return {
+        SetState = function(state)
+            isOn = state
+            UpdateToggle()
+        end,
+        GetState = function()
+            return isOn
+        end
+    }
+end
+
+-- ---- ФУНКЦИЯ КНОПКИ ----
+local function CreateButton(parent, text, yPos, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.8, 0, 40, 0)
+    btn.Position = UDim2.new(0.1, 0, 0, yPos)
+    btn.BackgroundColor3 = color or Color3.fromRGB(0, 100, 200)
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = parent
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 8)
+    UICorner.Parent = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        if callback then
+            callback()
+        end
+    end)
+    
+    return btn
+end
+
+-- ---- ФУНКЦИЯ ВЫБОРА ЦВЕТА ----
+local function CreateColorPicker(parent, title, yPos, defaultColor, callback)
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, -20, 0, 40)
+    holder.Position = UDim2.new(0, 10, 0, yPos)
+    holder.BackgroundTransparency = 1
+    holder.Parent = parent
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.4, 0, 0.5, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamMedium
+    label.Parent = holder
+    
+    local colorBtn = Instance.new("TextButton")
+    colorBtn.Size = UDim2.new(0, 50, 0, 30)
+    colorBtn.Position = UDim2.new(0.7, 0, 0.5, -15)
+    colorBtn.BackgroundColor3 = defaultColor or Color3.fromRGB(255, 255, 255)
+    colorBtn.BorderSizePixel = 2
+    colorBtn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+    colorBtn.Text = ""
+    colorBtn.Parent = holder
+    
+    local UICornerBtn = Instance.new("UICorner")
+    UICornerBtn.CornerRadius = UDim.new(0, 6)
+    UICornerBtn.Parent = colorBtn
+    
+    local currentColor = defaultColor or Color3.fromRGB(255, 255, 255)
+    
+    local presetColors = {
+        Color3.fromRGB(255, 200, 200),
+        Color3.fromRGB(255, 220, 180),
+        Color3.fromRGB(255, 255, 200),
+        Color3.fromRGB(200, 255, 200),
+        Color3.fromRGB(200, 240, 255),
+        Color3.fromRGB(200, 200, 255),
+        Color3.fromRGB(220, 200, 255),
+        Color3.fromRGB(255, 200, 255),
+        Color3.fromRGB(255, 255, 255),
+        Color3.fromRGB(200, 210, 220),
+    }
+    
+    local presetContainer = Instance.new("Frame")
+    presetContainer.Size = UDim2.new(0.5, 0, 0, 30)
+    presetContainer.Position = UDim2.new(0.45, 0, 0.1, 0)
+    presetContainer.BackgroundTransparency = 1
+    presetContainer.Visible = false
+    presetContainer.Parent = holder
+    
+    for i, color in ipairs(presetColors) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 20, 0, 20)
+        btn.Position = UDim2.new((i-1)*0.1, 0, 0, 5)
+        btn.BackgroundColor3 = color
+        btn.BorderSizePixel = 1
+        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Text = ""
+        btn.Parent = presetContainer
+        
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 4)
+        corner.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            currentColor = color
+            colorBtn.BackgroundColor3 = color
+            presetContainer.Visible = false
+            if callback then
+                callback(color)
+            end
+        end)
+    end
+    
+    colorBtn.MouseButton1Click:Connect(function()
+        presetContainer.Visible = not presetContainer.Visible
+    end)
+    
+    return {
+        SetColor = function(color)
+            currentColor = color
+            colorBtn.BackgroundColor3 = color
+            if callback then
+                callback(color)
+            end
+        end,
+        GetColor = function()
+            return currentColor
+        end
+    }
+end
+
+-- ---- ФУНКЦИЯ СЛАЙДЕРА ----
+local function CreateSlider(parent, title, yPos, minVal, maxVal, defaultVal, callback)
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, -20, 0, 40)
+    holder.Position = UDim2.new(0, 10, 0, yPos)
+    holder.BackgroundTransparency = 1
+    holder.Parent = parent
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.4, 0, 0.5, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = title
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamMedium
+    label.Parent = holder
+    
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0.2, 0, 0.5, 0)
+    valueLabel.Position = UDim2.new(0.8, 0, 0, 0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Text = tostring(defaultVal)
+    valueLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.TextScaled = true
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.Parent = holder
+    
+    local slider = Instance.new("Frame")
+    slider.Size = UDim2.new(0.7, 0, 0.3, 0)
+    slider.Position = UDim2.new(0, 0, 0.6, 0)
+    slider.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    slider.BorderSizePixel = 0
+    slider.Parent = holder
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((defaultVal - minVal)/(maxVal - minVal), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+    fill.BorderSizePixel = 0
+    fill.Parent = slider
+    
+    local dragBtn = Instance.new("TextButton")
+    dragBtn.Size = UDim2.new(0, 16, 0, 16)
+    dragBtn.Position = UDim2.new((defaultVal - minVal)/(maxVal - minVal), -8, 0.5, -8)
+    dragBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    dragBtn.BorderSizePixel = 0
+    dragBtn.Text = ""
+    dragBtn.Parent = slider
+    
+    local UICornerSlider = Instance.new("UICorner")
+    UICornerSlider.CornerRadius = UDim.new(0, 4)
+    UICornerSlider.Parent = slider
+    
+    local UICornerFill = Instance.new("UICorner")
+    UICornerFill.CornerRadius = UDim.new(0, 4)
+    UICornerFill.Parent = fill
+    
+    local UICornerBtn = Instance.new("UICorner")
+    UICornerBtn.CornerRadius = UDim.new(0, 8)
+    UICornerBtn.Parent = dragBtn
+    
+    local dragging = false
+    local currentVal = defaultVal
+    
+    dragBtn.MouseButton1Down:Connect(function()
+        dragging = true
+    end)
+    
+    dragBtn.MouseButton1Up:Connect(function()
+        dragging = false
+    end)
+    
+    dragBtn.MouseLeave:Connect(function()
+        dragging = false
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local relX = (input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X
+            local val = math.clamp(relX, 0, 1)
+            currentVal = minVal + val * (maxVal - minVal)
+            currentVal = math.round(currentVal)
+            valueLabel.Text = tostring(currentVal)
+            fill.Size = UDim2.new(val, 0, 1, 0)
+            dragBtn.Position = UDim2.new(val, -8, 0.5, -8)
+            if callback then
+                callback(currentVal)
+            end
+        end
+    end)
+    
+    return {
+        SetValue = function(val)
+            local v = math.clamp((val - minVal) / (maxVal - minVal), 0, 1)
+            currentVal = math.round(val)
+            valueLabel.Text = tostring(currentVal)
+            fill.Size = UDim2.new(v, 0, 1, 0)
+            dragBtn.Position = UDim2.new(v, -8, 0.5, -8)
+            if callback then
+                callback(currentVal)
+            end
+        end,
+        GetValue = function()
+            return currentVal
+        end
+    }
+end
+
+-- ---- ВКЛАДКА MAIN ----
+local MainTab = Instance.new("Frame")
+MainTab.Size = UDim2.new(1, 0, 1, 0)
+MainTab.BackgroundTransparency = 1
+MainTab.Visible = false
+MainTab.Parent = ScrollingFrame
+
+local mainY = 10
+
+CreateButton(MainTab, "👥 Игроки", mainY, Color3.fromRGB(0, 100, 200), function()
+    CreatePlayersMenu()
+end)
+
+mainY = mainY + 55
+
+local mainInfo = Instance.new("TextLabel")
+mainInfo.Size = UDim2.new(1, -20, 0, 60)
+mainInfo.Position = UDim2.new(0, 10, 0, mainY)
+mainInfo.BackgroundTransparency = 1
+mainInfo.Text = "Нажмите 'Игроки' чтобы открыть список\nТелепорт к игроку по клику"
+mainInfo.TextColor3 = Color3.fromRGB(150, 150, 170)
+mainInfo.TextXAlignment = Enum.TextXAlignment.Center
+mainInfo.TextScaled = true
+mainInfo.Font = Enum.Font.GothamMedium
+mainInfo.Parent = MainTab
+
+mainY = mainY + 80
+MainTab.Size = UDim2.new(1, 0, 0, mainY + 20)
+
+-- ---- ВКЛАДКА VISUALS ----
+local VisualsFrame = Instance.new("Frame")
+VisualsFrame.Size = UDim2.new(1, 0, 1, 0)
+VisualsFrame.BackgroundTransparency = 1
+VisualsFrame.Visible = false
+VisualsFrame.Parent = ScrollingFrame
+
+local yOffset = 10
+
+-- ESP
+CreateToggle(VisualsFrame, "ESP (MM2)", yOffset, false, function(state)
+    toggleESP(state)
+end)
+
+yOffset = yOffset + 45
+
+-- Speed Glitch
+CreateToggle(VisualsFrame, "⚡ Speed Glitch", yOffset, false, function(state)
+    toggleSpeedGlitch(state)
+end)
+
+yOffset = yOffset + 45
+
+-- No Clip
+CreateToggle(VisualsFrame, "🚫 No Clip", yOffset, false, function(state)
+    toggleNoClip(state)
+end)
+
+yOffset = yOffset + 45
+
+-- Custom Sky
+CreateToggle(VisualsFrame, "☀️ Custom Sky", yOffset, false, function(state)
+    skyEnabled = state
+    UpdateSky()
+end)
+
+yOffset = yOffset + 45
+
+-- Цвет неба
+CreateColorPicker(VisualsFrame, "Sky Color", yOffset, skyColor, function(color)
+    skyColor = color
+    if skyEnabled then
+        UpdateSky()
+    end
+end)
+
+yOffset = yOffset + 50
+
+-- Custom Fog
+CreateToggle(VisualsFrame, "🌫️ Custom Fog", yOffset, false, function(state)
+    fogEnabled = state
+    UpdateFog()
+end)
+
+yOffset = yOffset + 45
+
+-- Цвет тумана
+CreateColorPicker(VisualsFrame, "Fog Color", yOffset, fogColor, function(color)
+    fogColor = color
+    if fogEnabled then
+        UpdateFog()
+    end
+end)
+
+yOffset = yOffset + 50
+
+-- Плотность тумана
+CreateSlider(VisualsFrame, "Fog Density", yOffset, 0, 100, 30, function(val)
+    fogDensity = val
+    if fogEnabled then
+        UpdateFog()
+    end
+end)
+
+yOffset = yOffset + 55
+
+-- Информация о ролях
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -20, 0, 80)
+infoLabel.Position = UDim2.new(0, 10, 0, yOffset)
+infoLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+infoLabel.Text = "🔴 Murderer - Красный\n🔵 Sheriff - Синий\n🟢 Innocent - Зеленый"
+infoLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+infoLabel.TextYAlignment = Enum.TextYAlignment.Top
+infoLabel.TextScaled = true
+infoLabel.Font = Enum.Font.GothamMedium
+infoLabel.Parent = VisualsFrame
+
+yOffset = yOffset + 100
+VisualsFrame.Size = UDim2.new(1, 0, 0, yOffset + 20)
+
+-- ---- ВКЛАДКА TROLL ----
+local TrollFrame = Instance.new("Frame")
+TrollFrame.Size = UDim2.new(1, 0, 1, 0)
+TrollFrame.BackgroundTransparency = 1
+TrollFrame.Visible = false
+TrollFrame.Parent = ScrollingFrame
+
+local trollY = 10
+local trollFunctions = {
+    "Flip Screen",
+    "Invert Controls",
+    "Random Teleport",
+    "Fake Ban Message",
+    "Screen Shake",
+    "Reverse Camera"
+}
+
+for i, func in ipairs(trollFunctions) do
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, -20, 0, 30)
+    holder.Position = UDim2.new(0, 10, 0, trollY)
+    holder.BackgroundTransparency = 1
+    holder.Parent = TrollFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = func
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamMedium
+    label.Parent = holder
+    
+    local box = Instance.new("TextButton")
+    box.Size = UDim2.new(0, 25, 0, 25)
+    box.Position = UDim2.new(0.8, 0, 0.5, -12)
+    box.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    box.Text = "✓"
+    box.TextColor3 = Color3.fromRGB(255, 50, 50)
+    box.TextScaled = true
+    box.Visible = false
+    box.Parent = holder
+    
+    local checked = false
+    box.MouseButton1Click:Connect(function()
+        checked = not checked
+        box.Visible = checked
+        if checked then
+            print(func .. " активирован!")
+        end
+    end)
+    
+    trollY = trollY + 35
+end
+
+TrollFrame.Size = UDim2.new(1, 0, 0, trollY + 20)
+
+-- ---- ДРУГИЕ ВКЛАДКИ ----
+local tabFrames = {
+    Main = MainTab,
+    Fun = Instance.new("Frame"),
+    Misc = Instance.new("Frame"),
+    Visuals = VisualsFrame,
+    Troll = TrollFrame
+}
+
+for name, frame in pairs(tabFrames) do
+    if name ~= "Main" and name ~= "Visuals" and name ~= "Troll" then
+        frame.Size = UDim2.new(1, 0, 1, 0)
+        frame.BackgroundTransparency = 1
+        frame.Visible = false
+        frame.Parent = ScrollingFrame
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = name .. " Tab\n(Coming Soon)"
+        label.TextColor3 = Color3.fromRGB(80, 80, 100)
+        label.TextScaled = true
+        label.Font = Enum.Font.GothamBold
+        label.Parent = frame
+    end
+end
+
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(mainY, yOffset, trollY) + 40)
+
+-- ---- ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ----
+for name, btn in pairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        for _, frame in pairs(tabFrames) do
+            frame.Visible = false
+        end
+        if tabFrames[name] then
+            tabFrames[name].Visible = true
+        end
+    end)
+end
+
+tabFrames["Visuals"].Visible = true
+
+-- ---- ФУНКЦИИ ОТКРЫТИЯ/ЗАКРЫТИЯ ----
+local isOpen = false
+
+local function ToggleGUI()
+    isOpen = not isOpen
+    MainFrame.Visible = isOpen
+end
+
+ToggleButton.MouseButton1Click:Connect(ToggleGUI)
+CloseBtn.MouseButton1Click:Connect(function()
+    isOpen = false
+    MainFrame.Visible = false
+end)
+
+-- ---- ПЛАВНОЕ ПОЯВЛЕНИЕ КНОПКИ ----
+ToggleButton.Size = UDim2.new(0, 0, 0, 40)
+local tweenStart = TweenService:Create(ToggleButton, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 180, 0, 40)
+})
+tweenStart:Play()
+
+print("=== MaxArt Hub ЗАГРУЖЕН ===")
+print("Вкладка Visuals: ESP, Speed Glitch, No Clip, Custom Sky, Custom Fog")
