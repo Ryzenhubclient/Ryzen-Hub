@@ -1,0 +1,722 @@
+-- pikmi228 - MM2 Visual Script with Hidden Key System
+-- Скрытая система ключей с передвижением
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Сервисы
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+
+-- Скрытое GUI с паролями
+local SecretScreen = Instance.new("ScreenGui")
+SecretScreen.Name = "SecretKeys"
+SecretScreen.Parent = game:GetService("CoreGui")
+SecretScreen.Enabled = false
+
+local SecretFrame = Instance.new("Frame")
+SecretFrame.Size = UDim2.new(0, 250, 0, 150)
+SecretFrame.Position = UDim2.new(0.5, -125, 0.5, -75)
+SecretFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+SecretFrame.BorderColor3 = Color3.fromRGB(255, 192, 203)
+SecretFrame.BorderSizePixel = 2
+SecretFrame.Parent = SecretScreen
+SecretFrame.Active = true
+SecretFrame.Draggable = true -- Делаем передвигаемым
+
+-- Заголовок (тоже перетаскиваемый)
+local SecretTitle = Instance.new("TextLabel")
+SecretTitle.Size = UDim2.new(1, 0, 0, 30)
+SecretTitle.BackgroundColor3 = Color3.fromRGB(255, 192, 203)
+SecretTitle.Text = "🔑 Ключи (Перетащи меня)"
+SecretTitle.TextColor3 = Color3.fromRGB(0, 0, 0)
+SecretTitle.TextScaled = true
+SecretTitle.Font = Enum.Font.GothamBold
+SecretTitle.Parent = SecretFrame
+
+local Key1Label = Instance.new("TextLabel")
+Key1Label.Size = UDim2.new(1, -20, 0, 35)
+Key1Label.Position = UDim2.new(0, 10, 0, 40)
+Key1Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Key1Label.Text = "pikmi228"
+Key1Label.TextColor3 = Color3.fromRGB(255, 192, 203)
+Key1Label.TextScaled = true
+Key1Label.Font = Enum.Font.GothamBold
+Key1Label.Parent = SecretFrame
+
+local Key2Label = Instance.new("TextLabel")
+Key2Label.Size = UDim2.new(1, -20, 0, 35)
+Key2Label.Position = UDim2.new(0, 10, 0, 85)
+Key2Label.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Key2Label.Text = "sandra"
+Key2Label.TextColor3 = Color3.fromRGB(255, 192, 203)
+Key2Label.TextScaled = true
+Key2Label.Font = Enum.Font.GothamBold
+Key2Label.Parent = SecretFrame
+
+-- Кнопка закрытия
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 25, 0, 25)
+CloseButton.Position = UDim2.new(1, -30, 0, 3)
+CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseButton.TextScaled = true
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.Parent = SecretFrame
+CloseButton.MouseButton1Click:Connect(function()
+    SecretScreen.Enabled = false
+end)
+
+-- Функция для ручного перетаскивания (более плавное)
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPos = nil
+
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    SecretFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+SecretTitle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = SecretFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+SecretTitle.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        updateDrag(input)
+    end
+end)
+
+-- Обработка нажатия L
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.L then
+        SecretScreen.Enabled = not SecretScreen.Enabled
+    end
+end)
+
+-- Система ключей
+local validKeys = {
+    "pikmi228",
+    "sandra"
+}
+
+local function checkKey(key)
+    for _, validKey in ipairs(validKeys) do
+        if key == validKey then
+            return true
+        end
+    end
+    return false
+end
+
+-- Создаём окно ввода ключа
+local KeyScreen = Instance.new("ScreenGui")
+KeyScreen.Name = "KeySystem"
+KeyScreen.Parent = game:GetService("CoreGui")
+
+local KeyFrame = Instance.new("Frame")
+KeyFrame.Size = UDim2.new(0, 300, 0, 200)
+KeyFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+KeyFrame.BorderColor3 = Color3.fromRGB(255, 192, 203)
+KeyFrame.BorderSizePixel = 2
+KeyFrame.Parent = KeyScreen
+
+local KeyTitle = Instance.new("TextLabel")
+KeyTitle.Size = UDim2.new(1, 0, 0, 40)
+KeyTitle.BackgroundColor3 = Color3.fromRGB(255, 192, 203)
+KeyTitle.Text = "pikmi228 - Активация"
+KeyTitle.TextColor3 = Color3.fromRGB(0, 0, 0)
+KeyTitle.TextScaled = true
+KeyTitle.Font = Enum.Font.GothamBold
+KeyTitle.Parent = KeyFrame
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Size = UDim2.new(1, -20, 0, 40)
+KeyBox.Position = UDim2.new(0, 10, 0, 60)
+KeyBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.PlaceholderText = "Введите ключ..."
+KeyBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+KeyBox.TextScaled = true
+KeyBox.Font = Enum.Font.Gotham
+KeyBox.Parent = KeyFrame
+
+local KeyButton = Instance.new("TextButton")
+KeyButton.Size = UDim2.new(1, -20, 0, 40)
+KeyButton.Position = UDim2.new(0, 10, 0, 110)
+KeyButton.BackgroundColor3 = Color3.fromRGB(255, 192, 203)
+KeyButton.Text = "Активировать"
+KeyButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+KeyButton.TextScaled = true
+KeyButton.Font = Enum.Font.GothamBold
+KeyButton.Parent = KeyFrame
+
+local KeyStatus = Instance.new("TextLabel")
+KeyStatus.Size = UDim2.new(1, 0, 0, 30)
+KeyStatus.Position = UDim2.new(0, 0, 0, 160)
+KeyStatus.BackgroundTransparency = 1
+KeyStatus.Text = ""
+KeyStatus.TextColor3 = Color3.fromRGB(255, 0, 0)
+KeyStatus.TextScaled = true
+KeyStatus.Font = Enum.Font.Gotham
+KeyStatus.Parent = KeyFrame
+
+local keyAccepted = false
+
+local function activateKey()
+    local enteredKey = KeyBox.Text
+    if checkKey(enteredKey) then
+        keyAccepted = true
+        KeyStatus.Text = "✅ Ключ верный!"
+        KeyStatus.TextColor3 = Color3.fromRGB(0, 255, 0)
+        wait(1)
+        KeyScreen:Destroy()
+        SecretScreen:Destroy()
+        loadMainGUI()
+    else
+        KeyStatus.Text = "❌ Неверный ключ!"
+        KeyStatus.TextColor3 = Color3.fromRGB(255, 0, 0)
+        KeyBox.Text = ""
+    end
+end
+
+KeyButton.MouseButton1Click:Connect(activateKey)
+
+KeyBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        activateKey()
+    end
+end)
+
+function loadMainGUI()
+    local Window = Rayfield:CreateWindow({
+        Name = "pikmi228 | Визуал",
+        LoadingTitle = "pikmi228 Загрузка...",
+        LoadingSubtitle = "от pikmi228 💕",
+        ConfigurationSaving = {
+            Enabled = false,
+        },
+        Discord = {
+            Enabled = false,
+        },
+        KeySystem = false,
+    })
+
+    -- Сервисы
+    local RunService = game:GetService("RunService")
+    local Lighting = game:GetService("Lighting")
+    local Camera = game.Workspace.CurrentCamera
+
+    -- Функции
+    local function getLighting() return Lighting end
+    local function getCharacter() return Player.Character end
+    local function getCamera() return Camera end
+    local function getHumanoid() return getCharacter() and getCharacter():FindFirstChild("Humanoid") end
+
+    -- Вкладка Небо
+    local SkyTab = Window:CreateTab("🌸 Небо", 4483362458)
+
+    SkyTab:CreateSection("Кастомное небо")
+
+    local function CreateCustomSky(parent, assetId, name)
+        for _, child in pairs(parent:GetChildren()) do
+            if child:IsA("Sky") then
+                child:Destroy()
+            end
+        end
+        
+        local sky = Instance.new("Sky")
+        sky.Name = name or "CustomSky"
+        sky.Parent = parent
+        
+        if assetId then
+            sky.SkyboxUp = assetId
+            sky.SkyboxDown = assetId
+            sky.SkyboxLeft = assetId
+            sky.SkyboxRight = assetId
+            sky.SkyboxFront = assetId
+            sky.SkyboxBack = assetId
+        end
+        
+        return sky
+    end
+
+    SkyTab:CreateDropdown({
+        Name = "🌸 Аниме небо",
+        Options = {"Обычное", "Аниме 1", "Аниме 2", "Розовое", "Фиолетовое", "Ночное", "Закат"},
+        CurrentOption = "Обычное",
+        Flag = "AnimeSky",
+        Callback = function(Option)
+            local Lighting = getLighting()
+            
+            if Option == "Аниме 1" then
+                CreateCustomSky(Lighting, "rbxassetid://159454299", "AnimeSky1")
+                Lighting.Ambient = Color3.fromRGB(255, 200, 220)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 200, 220)
+                Lighting.FogColor = Color3.fromRGB(255, 192, 203)
+                Lighting.TimeOfDay = "14:00:00"
+            elseif Option == "Аниме 2" then
+                CreateCustomSky(Lighting, "rbxassetid://159454300", "AnimeSky2")
+                Lighting.Ambient = Color3.fromRGB(200, 220, 255)
+                Lighting.OutdoorAmbient = Color3.fromRGB(200, 220, 255)
+                Lighting.FogColor = Color3.fromRGB(173, 216, 230)
+                Lighting.TimeOfDay = "12:00:00"
+            elseif Option == "Розовое" then
+                Lighting.TimeOfDay = "14:00:00"
+                Lighting.Ambient = Color3.fromRGB(255, 192, 203)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 192, 203)
+                Lighting.FogColor = Color3.fromRGB(255, 192, 203)
+            elseif Option == "Фиолетовое" then
+                Lighting.TimeOfDay = "12:00:00"
+                Lighting.Ambient = Color3.fromRGB(150, 50, 255)
+                Lighting.OutdoorAmbient = Color3.fromRGB(150, 50, 255)
+                Lighting.FogColor = Color3.fromRGB(150, 50, 255)
+            elseif Option == "Ночное" then
+                Lighting.TimeOfDay = "00:00:00"
+                Lighting.Ambient = Color3.fromRGB(20, 20, 40)
+                Lighting.OutdoorAmbient = Color3.fromRGB(20, 20, 40)
+                Lighting.FogColor = Color3.fromRGB(10, 10, 30)
+            elseif Option == "Закат" then
+                Lighting.TimeOfDay = "18:00:00"
+                Lighting.Ambient = Color3.fromRGB(255, 150, 100)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 150, 100)
+                Lighting.FogColor = Color3.fromRGB(255, 150, 100)
+            else
+                Lighting.TimeOfDay = "14:00:00"
+                Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+                Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+                Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+                for _, child in pairs(Lighting:GetChildren()) do
+                    if child:IsA("Sky") then
+                        child:Destroy()
+                    end
+                end
+            end
+        end,
+    })
+
+    -- Вкладка Шейдеры
+    local ShaderTab = Window:CreateTab("✨ Шейдеры", 4483362458)
+
+    ShaderTab:CreateSection("Шейдеры")
+
+    ShaderTab:CreateToggle({
+        Name = "🔄 Инверт",
+        CurrentValue = false,
+        Flag = "Invert",
+        Callback = function(Value)
+            if Value then
+                Lighting.ColorCorrection = Color3.fromRGB(0, 0, 0)
+                Lighting.Contrast = 1
+            else
+                Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+                Lighting.Contrast = 0
+            end
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "🟤 Сепия",
+        CurrentValue = false,
+        Flag = "Sepia",
+        Callback = function(Value)
+            if Value then
+                Lighting.ColorCorrection = Color3.fromRGB(255, 220, 180)
+                Lighting.Saturation = -0.3
+            else
+                Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+                Lighting.Saturation = 0
+            end
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "⬛ ЧБ",
+        CurrentValue = false,
+        Flag = "BW",
+        Callback = function(Value)
+            if Value then
+                Lighting.Saturation = -1
+                Lighting.Contrast = 0.5
+            else
+                Lighting.Saturation = 0
+                Lighting.Contrast = 0
+            end
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "💜 Неон",
+        CurrentValue = false,
+        Flag = "Neon",
+        Callback = function(Value)
+            if Value then
+                Lighting.Ambient = Color3.fromRGB(100, 0, 255)
+                Lighting.OutdoorAmbient = Color3.fromRGB(100, 0, 255)
+                Lighting.ColorCorrection = Color3.fromRGB(200, 100, 255)
+                Lighting.Saturation = 0.5
+            else
+                Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+                Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+                Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+                Lighting.Saturation = 0
+            end
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "🌸 Аниме",
+        CurrentValue = false,
+        Flag = "Anime",
+        Callback = function(Value)
+            if Value then
+                Lighting.Ambient = Color3.fromRGB(255, 200, 220)
+                Lighting.OutdoorAmbient = Color3.fromRGB(255, 200, 220)
+                Lighting.ColorCorrection = Color3.fromRGB(255, 220, 230)
+                Lighting.Saturation = 0.3
+                Lighting.Contrast = 0.2
+            else
+                Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+                Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+                Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+                Lighting.Saturation = 0
+                Lighting.Contrast = 0
+            end
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "🌈 Радуга",
+        CurrentValue = false,
+        Flag = "Rainbow",
+        Callback = function(Value)
+            if Value then
+                spawn(function()
+                    local hue = 0
+                    while getgenv().RainbowShader do
+                        hue = hue + 0.01
+                        if hue > 1 then hue = 0 end
+                        local color = Color3.fromHSV(hue, 1, 1)
+                        Lighting.Ambient = color
+                        Lighting.OutdoorAmbient = color
+                        Lighting.ColorCorrection = color
+                        wait(0.1)
+                    end
+                end)
+            else
+                Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+                Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+                Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+            end
+            getgenv().RainbowShader = Value
+        end,
+    })
+
+    ShaderTab:CreateToggle({
+        Name = "💓 Пульс",
+        CurrentValue = false,
+        Flag = "Pulse",
+        Callback = function(Value)
+            if Value then
+                spawn(function()
+                    local i = 0
+                    while getgenv().PulseShader do
+                        i = i + 0.1
+                        local brightness = 1 + math.sin(i) * 0.5
+                        Lighting.Brightness = brightness
+                        Lighting.Contrast = math.sin(i) * 0.3
+                        wait(0.05)
+                    end
+                end)
+            else
+                Lighting.Brightness = 1
+                Lighting.Contrast = 0
+            end
+            getgenv().PulseShader = Value
+        end,
+    })
+
+    -- Вкладка Мир
+    local WorldTab = Window:CreateTab("🌍 Мир", 4483362458)
+
+    WorldTab:CreateSection("Освещение")
+
+    WorldTab:CreateSlider({
+        Name = "🕐 Время",
+        Range = {0, 24},
+        Increment = 0.5,
+        Suffix = " ч",
+        CurrentValue = 14,
+        Flag = "Time",
+        Callback = function(Value)
+            local hours = math.floor(Value)
+            local minutes = math.floor((Value - hours) * 60)
+            Lighting.TimeOfDay = string.format("%02d:%02d:00", hours, minutes)
+        end,
+    })
+
+    WorldTab:CreateSlider({
+        Name = "☀️ Яркость",
+        Range = {0, 5},
+        Increment = 0.1,
+        Suffix = "x",
+        CurrentValue = 1,
+        Flag = "Brightness",
+        Callback = function(Value)
+            Lighting.Brightness = Value
+        end,
+    })
+
+    WorldTab:CreateSection("Туман")
+
+    WorldTab:CreateToggle({
+        Name = "🌫️ Туман",
+        CurrentValue = false,
+        Flag = "Fog",
+        Callback = function(Value)
+            if Value then
+                Lighting.FogStart = 0
+                Lighting.FogEnd = 100
+            else
+                Lighting.FogStart = 1000
+                Lighting.FogEnd = 100000
+            end
+        end,
+    })
+
+    WorldTab:CreateSlider({
+        Name = "📏 Плотность",
+        Range = {10, 1000},
+        Increment = 10,
+        Suffix = " м",
+        CurrentValue = 100,
+        Flag = "FogDensity",
+        Callback = function(Value)
+            Lighting.FogEnd = Value
+        end,
+    })
+
+    WorldTab:CreateColorPicker({
+        Name = "🎨 Цвет тумана",
+        Color = Color3.fromRGB(192, 192, 192),
+        Flag = "FogColor",
+        Callback = function(Color)
+            Lighting.FogColor = Color
+        end,
+    })
+
+    WorldTab:CreateSection("Атмосфера")
+
+    WorldTab:CreateSlider({
+        Name = "🎨 Насыщенность",
+        Range = {-1, 1},
+        Increment = 0.1,
+        Suffix = "",
+        CurrentValue = 0,
+        Flag = "Saturation",
+        Callback = function(Value)
+            Lighting.Saturation = Value
+        end,
+    })
+
+    WorldTab:CreateSlider({
+        Name = "🌓 Контраст",
+        Range = {-1, 1},
+        Increment = 0.1,
+        Suffix = "",
+        CurrentValue = 0,
+        Flag = "Contrast",
+        Callback = function(Value)
+            Lighting.Contrast = Value
+        end,
+    })
+
+    WorldTab:CreateSlider({
+        Name = "📸 Экспозиция",
+        Range = {0, 2},
+        Increment = 0.1,
+        Suffix = "x",
+        CurrentValue = 1,
+        Flag = "Exposure",
+        Callback = function(Value)
+            Lighting.ExposureCompensation = Value
+        end,
+    })
+
+    -- Вкладка Камера
+    local CameraTab = Window:CreateTab("📷 Камера", 4483362458)
+
+    CameraTab:CreateSection("FOV")
+
+    CameraTab:CreateSlider({
+        Name = "👁️ FOV",
+        Range = {30, 120},
+        Increment = 1,
+        Suffix = "°",
+        CurrentValue = 70,
+        Flag = "FOV",
+        Callback = function(Value)
+            Camera.FieldOfView = Value
+        end,
+    })
+
+    CameraTab:CreateSection("Позиция")
+
+    CameraTab:CreateSlider({
+        Name = "📏 Дистанция",
+        Range = {0, 20},
+        Increment = 1,
+        Suffix = " м",
+        CurrentValue = 0,
+        Flag = "CamDist",
+        Callback = function(Value)
+            local hum = getHumanoid()
+            if hum then
+                hum.CameraOffset = Vector3.new(0, 0, Value)
+            end
+        end,
+    })
+
+    CameraTab:CreateSlider({
+        Name = "↕️ Высота",
+        Range = {-5, 5},
+        Increment = 0.5,
+        Suffix = " м",
+        CurrentValue = 0,
+        Flag = "CamHeight",
+        Callback = function(Value)
+            local hum = getHumanoid()
+            if hum then
+                hum.CameraOffset = Vector3.new(0, Value, 0)
+            end
+        end,
+    })
+
+    -- Вкладка Speed Glitch
+    local SpeedTab = Window:CreateTab("⚡ Speed", 4483362458)
+
+    SpeedTab:CreateSection("Speed Glitch")
+
+    local speedGlitchConnection = nil
+    local speedValue = 100
+
+    SpeedTab:CreateToggle({
+        Name = "⚡ Speed Glitch",
+        CurrentValue = false,
+        Flag = "SpeedGlitch",
+        Callback = function(Value)
+            if speedGlitchConnection then
+                speedGlitchConnection:Disconnect()
+                speedGlitchConnection = nil
+            end
+            
+            if Value then
+                speedGlitchConnection = RunService.Heartbeat:Connect(function()
+                    local char = getCharacter()
+                    if char then
+                        local h = char:FindFirstChild("Humanoid")
+                        if h then
+                            if h:GetState() == Enum.HumanoidStateType.Jumping or h:GetState() == Enum.HumanoidStateType.Freefall then
+                                h.WalkSpeed = speedValue
+                            else
+                                h.WalkSpeed = 16
+                            end
+                        end
+                    end
+                end)
+            else
+                local char = getCharacter()
+                if char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid.WalkSpeed = 16
+                end
+            end
+        end,
+    })
+
+    SpeedTab:CreateSlider({
+        Name = "🏃 Скорость",
+        Range = {50, 300},
+        Increment = 10,
+        Suffix = "",
+        CurrentValue = 100,
+        Flag = "SpeedValue",
+        Callback = function(Value)
+            speedValue = Value
+        end,
+    })
+
+    -- Вкладка Сброс
+    local ResetTab = Window:CreateTab("🔄 Сброс", 4483362458)
+
+    ResetTab:CreateSection("Сброс")
+
+    ResetTab:CreateButton({
+        Name = "🔄 Сбросить всё",
+        Callback = function()
+            Lighting.TimeOfDay = "14:00:00"
+            Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+            Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+            Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+            Lighting.FogStart = 100
+            Lighting.FogEnd = 1000
+            Lighting.Brightness = 1
+            Lighting.ColorCorrection = Color3.fromRGB(255, 255, 255)
+            Lighting.Saturation = 0
+            Lighting.Contrast = 0
+            Lighting.ExposureCompensation = 1
+            
+            Camera.FieldOfView = 70
+            
+            local char = getCharacter()
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.CameraOffset = Vector3.new(0, 0, 0)
+                char.Humanoid.WalkSpeed = 16
+            end
+            
+            if speedGlitchConnection then
+                speedGlitchConnection:Disconnect()
+                speedGlitchConnection = nil
+            end
+            
+            getgenv().RainbowShader = false
+            getgenv().PulseShader = false
+            
+            for _, child in pairs(Lighting:GetChildren()) do
+                if child:IsA("Sky") then
+                    child:Destroy()
+                end
+            end
+        end,
+    })
+
+    -- Вкладка Инфо
+    local InfoTab = Window:CreateTab("💖 Инфо", 4483362458)
+
+    InfoTab:CreateSection("Информация")
+
+    InfoTab:CreateLabel("pikmi228 - Визуальный скрипт")
+    InfoTab:CreateLabel("Сделано с любовью 💕")
+    InfoTab:CreateLabel("Для самой лучшей 💖")
+
+    Rayfield:LoadDefault()
+end
