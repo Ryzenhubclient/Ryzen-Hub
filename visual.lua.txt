@@ -1,0 +1,898 @@
+-- ============================================
+-- EXTREME SHADERS + 17 НОВЫХ ФУНКЦИЙ (ВКЛЮЧАЯ HEADLESS И KORBLOX)
+-- ============================================
+
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+-- УДАЛЯЕМ СТАРОЕ
+local oldGui = LocalPlayer.PlayerGui:FindFirstChild("ExtremeShadersGUI")
+if oldGui then oldGui:Destroy() end
+
+-- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+local extraEffects = {}
+local overlayGui = nil
+local korbloxActive = false
+local headlessActive = false
+
+-- ============================================
+-- СОЗДАНИЕ ЭФФЕКТОВ (ОСНОВНЫЕ)
+-- ============================================
+local function CreateEffects()
+    for i, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or 
+           v:IsA("SunRaysEffect") or v:IsA("Sky") or v:IsA("Atmosphere") then
+            v:Destroy()
+        end
+    end
+
+    local Bloom = Instance.new("BloomEffect")
+    local Blur = Instance.new("BlurEffect")
+    local ColorCor = Instance.new("ColorCorrectionEffect")
+    local SunRays = Instance.new("SunRaysEffect")
+    local Sky = Instance.new("Sky")
+    local Atm = Instance.new("Atmosphere")
+
+    Bloom.Parent = Lighting
+    Blur.Parent = Lighting
+    ColorCor.Parent = Lighting
+    SunRays.Parent = Lighting
+    Sky.Parent = Lighting
+    Atm.Parent = Lighting
+
+    Bloom.Intensity = 0.3
+    Bloom.Size = 10
+    Bloom.Threshold = 0.8
+
+    Blur.Size = 5
+
+    ColorCor.Brightness = 0.1
+    ColorCor.Contrast = 0.5
+    ColorCor.Saturation = -0.3
+    ColorCor.TintColor = Color3.fromRGB(255, 235, 203)
+
+    SunRays.Intensity = 0.075
+    SunRays.Spread = 0.727
+
+    Sky.SkyboxBk = "http://www.roblox.com/asset/?id=151165214"
+    Sky.SkyboxDn = "http://www.roblox.com/asset/?id=151165197"
+    Sky.SkyboxFt = "http://www.roblox.com/asset/?id=151165224"
+    Sky.SkyboxLf = "http://www.roblox.com/asset/?id=151165191"
+    Sky.SkyboxRt = "http://www.roblox.com/asset/?id=151165206"
+    Sky.SkyboxUp = "http://www.roblox.com/asset/?id=151165227"
+
+    Lighting.Ambient = Color3.fromRGB(2, 2, 2)
+    Lighting.Brightness = 2.25
+    Lighting.ClockTime = 17
+    Lighting.ExposureCompensation = 0.5
+
+    Atm.Density = 0.364
+    Atm.Offset = 0.556
+    Atm.Color = Color3.fromRGB(199, 175, 166)
+    Atm.Decay = Color3.fromRGB(44, 39, 33)
+    Atm.Glare = 0.36
+    Atm.Haze = 1.72
+    
+    return {Bloom = Bloom, Blur = Blur, ColorCor = ColorCor, SunRays = SunRays, Sky = Sky, Atm = Atm}
+end
+
+-- ============================================
+-- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ НОВЫХ ЭФФЕКТОВ
+-- ============================================
+local function CreateOverlay(texture, transparency, size, position)
+    if not overlayGui then
+        overlayGui = Instance.new("ScreenGui")
+        overlayGui.Name = "OverlayEffects"
+        overlayGui.Parent = LocalPlayer.PlayerGui
+        overlayGui.ResetOnSpawn = false
+    end
+    local img = Instance.new("ImageLabel")
+    img.Size = size or UDim2.new(1, 0, 1, 0)
+    img.Position = position or UDim2.new(0, 0, 0, 0)
+    img.BackgroundTransparency = 1
+    img.Image = texture or "rbxassetid://4576475446"
+    img.ImageTransparency = transparency or 0.3
+    img.ZIndex = 10
+    img.Parent = overlayGui
+    return img
+end
+
+local function RemoveExtraEffect(name)
+    if extraEffects[name] then
+        if extraEffects[name]:IsA("ImageLabel") or extraEffects[name]:IsA("Frame") then
+            extraEffects[name]:Destroy()
+        else
+            pcall(function() extraEffects[name]:Destroy() end)
+        end
+        extraEffects[name] = nil
+    end
+end
+
+-- ============================================
+-- ФУНКЦИЯ KORBLOX (скелетные ноги)
+-- ============================================
+local function ApplyKorblox(char, enable)
+    if not char then return end
+    local isR15 = char:FindFirstChild("RightUpperLeg") ~= nil
+    if not isR15 then
+        warn("Korblox работает только для R15")
+        return
+    end
+    
+    local parts = {
+        RightLowerLeg = {id = "rbxassetid://902942093"},
+        RightFoot = {id = "rbxassetid://902942089"},
+        RightUpperLeg = {id = "rbxassetid://902942110"}
+    }
+    
+    -- Если включаем
+    if enable then
+        -- Сохраняем оригинальные MeshId, если ещё не сохранены
+        if not extraEffects.KorbloxOriginal then
+            extraEffects.KorbloxOriginal = {}
+            for partName, data in pairs(parts) do
+                local part = char:FindFirstChild(partName)
+                if part then
+                    extraEffects.KorbloxOriginal[partName] = part.MeshId
+                end
+            end
+        end
+        -- Применяем новые MeshId
+        for partName, data in pairs(parts) do
+            local part = char:FindFirstChild(partName)
+            if part then
+                part.MeshId = data.id
+            end
+        end
+    else
+        -- Восстанавливаем оригинальные MeshId
+        if extraEffects.KorbloxOriginal then
+            for partName, originalId in pairs(extraEffects.KorbloxOriginal) do
+                local part = char:FindFirstChild(partName)
+                if part then
+                    part.MeshId = originalId
+                end
+            end
+            extraEffects.KorbloxOriginal = nil
+        else
+            -- Если не сохраняли, сбрасываем на стандартные (удаляем MeshId)
+            for partName, data in pairs(parts) do
+                local part = char:FindFirstChild(partName)
+                if part then
+                    part.MeshId = ""
+                end
+            end
+        end
+    end
+end
+
+-- Следим за перерождением персонажа, чтобы автоматически применять Korblox, если включен
+local function OnCharacterAdded(char)
+    if korbloxActive then
+        ApplyKorblox(char, true)
+    end
+    if headlessActive then
+        -- Функция для головы (она уже есть, но мы её вызовем отдельно)
+        -- Но у нас headless отдельно, поэтому просто вызовем её логику позже
+        -- Для простоты мы добавим обработку в самой функции головы через CharacterAdded
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(OnCharacterAdded)
+
+-- ============================================
+-- GUI МЕНЮ
+-- ============================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ExtremeShadersGUI"
+ScreenGui.Parent = LocalPlayer.PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 380, 0, 550)
+Main.Position = UDim2.new(0.5, -190, 0.5, -275)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+Main.BackgroundTransparency = 0.95
+Main.BorderSizePixel = 2
+Main.BorderColor3 = Color3.fromRGB(0, 255, 200)
+Main.Active = true
+Main.Visible = true
+Main.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 10)
+Corner.Parent = Main
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 10, 0, 10)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+ToggleBtn.Text = "🎨"
+ToggleBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+ToggleBtn.Font = Enum.Font.Code
+ToggleBtn.TextSize = 24
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Parent = ScreenGui
+
+local TogCorner = Instance.new("UICorner")
+TogCorner.CornerRadius = UDim.new(0, 12)
+TogCorner.Parent = ToggleBtn
+
+local function ToggleGUI()
+    Main.Visible = not Main.Visible
+    ToggleBtn.BackgroundColor3 = Main.Visible and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(255, 50, 50)
+end
+ToggleBtn.MouseButton1Click:Connect(ToggleGUI)
+
+-- ПЕРЕТАСКИВАНИЕ
+local Dragging, DragInput, DragStart, StartPos
+Main.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        Dragging = true
+        DragStart = i.Position
+        StartPos = Main.Position
+        i.Changed:Connect(function()
+            if i.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+        end)
+    end
+end)
+
+Main.InputChanged:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+        DragInput = i
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if i == DragInput and Dragging then
+        local Delta = i.Position - DragStart
+        Main.Position = UDim2.new(StartPos.X.Scale, StartPos.X.Offset + Delta.X, StartPos.Y.Scale, StartPos.Y.Offset + Delta.Y)
+    end
+end)
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 10)
+HeaderCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -40, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🎨 EXTREME SHADERS + 17 NEW"
+Title.TextColor3 = Color3.fromRGB(0, 255, 200)
+Title.Font = Enum.Font.Code
+Title.TextSize = 14
+Title.Parent = Header
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseBtn.Font = Enum.Font.Code
+CloseBtn.TextSize = 18
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Parent = Header
+CloseBtn.MouseButton1Click:Connect(ToggleGUI)
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -20, 1, -60)
+Scroll.Position = UDim2.new(0, 10, 0, 50)
+Scroll.BackgroundTransparency = 1
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 4300)
+Scroll.ScrollBarThickness = 5
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 255, 200)
+Scroll.Parent = Main
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = Scroll
+Layout.Padding = UDim.new(0, 4)
+
+-- ФУНКЦИИ СОЗДАНИЯ КНОПОК И СЛАЙДЕРОВ
+local function CreateToggle(text, callback)
+    local B = Instance.new("TextButton")
+    B.Size = UDim2.new(1, 0, 0, 32)
+    B.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    B.Text = "  " .. text .. " [ВЫКЛ]"
+    B.TextColor3 = Color3.fromRGB(180, 180, 180)
+    B.Font = Enum.Font.Code
+    B.TextSize = 13
+    B.TextXAlignment = Enum.TextXAlignment.Left
+    B.Parent = Scroll
+    
+    local BC = Instance.new("UICorner")
+    BC.CornerRadius = UDim.new(0, 5)
+    BC.Parent = B
+    
+    local active = false
+    B.MouseButton1Click:Connect(function()
+        active = not active
+        if active then
+            B.Text = "  " .. text .. " [ВКЛ]"
+            B.BackgroundColor3 = Color3.fromRGB(0, 60, 50)
+            B.TextColor3 = Color3.fromRGB(0, 255, 200)
+        else
+            B.Text = "  " .. text .. " [ВЫКЛ]"
+            B.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+            B.TextColor3 = Color3.fromRGB(180, 180, 180)
+        end
+        pcall(function() callback(active) end)
+    end)
+    return B
+end
+
+local function CreateSlider(text, min, max, default, callback)
+    local Container = Instance.new("Frame")
+    Container.Size = UDim2.new(1, 0, 0, 50)
+    Container.BackgroundTransparency = 1
+    Container.Parent = Scroll
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.5, 0, 0, 20)
+    Label.BackgroundTransparency = 1
+    Label.Text = text .. ": " .. default
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Code
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
+    
+    local Slider = Instance.new("Frame")
+    Slider.Size = UDim2.new(0.8, 0, 0, 6)
+    Slider.Position = UDim2.new(0, 0, 0, 25)
+    Slider.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    Slider.BorderSizePixel = 0
+    Slider.Parent = Container
+    
+    local SliderCorner = Instance.new("UICorner")
+    SliderCorner.CornerRadius = UDim.new(0, 3)
+    SliderCorner.Parent = Slider
+    
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    Fill.BorderSizePixel = 0
+    Fill.Parent = Slider
+    
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(0, 3)
+    FillCorner.Parent = Fill
+    
+    local Value = default
+    local dragging = false
+    
+    local function UpdateSlider(mouseX)
+        local relX = math.clamp((mouseX - Slider.AbsolutePosition.X) / Slider.AbsoluteSize.X, 0, 1)
+        Fill.Size = UDim2.new(relX, 0, 1, 0)
+        Value = min + (max - min) * relX
+        Value = math.round(Value * 100) / 100
+        Label.Text = text .. ": " .. Value
+        callback(Value)
+    end
+    
+    Slider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            UpdateSlider(input.Position.X)
+        end
+    end)
+    
+    Slider.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            UpdateSlider(input.Position.X)
+        end
+    end)
+end
+
+-- ============================================
+-- ОСНОВНЫЕ ЭФФЕКТЫ (БЫЛИ)
+-- ============================================
+local allActive = false
+CreateToggle("⭐ ВКЛЮЧИТЬ ВСЁ", function(on)
+    allActive = on
+    if on then
+        CreateEffects()
+    else
+        for i, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or 
+               v:IsA("SunRaysEffect") or v:IsA("Sky") or v:IsA("Atmosphere") then
+                v:Destroy()
+            end
+        end
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 12
+        Lighting.ExposureCompensation = 0
+    end
+end)
+
+local effects = {}
+local function ToggleEffect(name, createFn, destroyFn)
+    CreateToggle("🎯 " .. name, function(on)
+        if on then
+            createFn()
+        else
+            destroyFn()
+        end
+    end)
+end
+
+-- Старые эффекты
+ToggleEffect("Bloom", 
+    function()
+        local b = Instance.new("BloomEffect", Lighting)
+        b.Intensity = 0.3
+        b.Size = 10
+        b.Threshold = 0.8
+        effects.Bloom = b
+    end,
+    function()
+        if effects.Bloom then effects.Bloom:Destroy() end
+    end
+)
+
+ToggleEffect("Размытие",
+    function()
+        local b = Instance.new("BlurEffect", Lighting)
+        b.Size = 5
+        effects.Blur = b
+    end,
+    function()
+        if effects.Blur then effects.Blur:Destroy() end
+    end
+)
+
+ToggleEffect("Цветокоррекция",
+    function()
+        local c = Instance.new("ColorCorrectionEffect", Lighting)
+        c.Brightness = 0.1
+        c.Contrast = 0.5
+        c.Saturation = -0.3
+        c.TintColor = Color3.fromRGB(255, 235, 203)
+        effects.ColorCor = c
+    end,
+    function()
+        if effects.ColorCor then effects.ColorCor:Destroy() end
+    end
+)
+
+ToggleEffect("Солнечные лучи",
+    function()
+        local s = Instance.new("SunRaysEffect", Lighting)
+        s.Intensity = 0.075
+        s.Spread = 0.727
+        effects.SunRays = s
+    end,
+    function()
+        if effects.SunRays then effects.SunRays:Destroy() end
+    end
+)
+
+ToggleEffect("Атмосфера",
+    function()
+        local a = Instance.new("Atmosphere", Lighting)
+        a.Density = 0.364
+        a.Offset = 0.556
+        a.Color = Color3.fromRGB(199, 175, 166)
+        a.Decay = Color3.fromRGB(44, 39, 33)
+        a.Glare = 0.36
+        a.Haze = 1.72
+        effects.Atm = a
+    end,
+    function()
+        if effects.Atm then effects.Atm:Destroy() end
+    end
+)
+
+-- Слайдеры
+CreateSlider("Яркость", 0, 10, 2.25, function(v)
+    Lighting.Brightness = v
+end)
+
+CreateSlider("Время суток", 0, 24, 17, function(v)
+    Lighting.ClockTime = v
+end)
+
+CreateSlider("Интенсивность Bloom", 0, 3, 0.3, function(v)
+    if effects.Bloom then
+        effects.Bloom.Intensity = v
+    end
+end)
+
+CreateSlider("Размер Bloom", 0, 50, 10, function(v)
+    if effects.Bloom then
+        effects.Bloom.Size = v
+    end
+end)
+
+CreateSlider("Контраст", -1, 1, 0.5, function(v)
+    if effects.ColorCor then
+        effects.ColorCor.Contrast = v
+    end
+end)
+
+-- ============================================
+-- 17 НОВЫХ РАБОЧИХ ФУНКЦИЙ (включая HEADLESS и KORBLOX)
+-- ============================================
+
+-- 1. Виньетка
+CreateToggle("🌑 Виньетка", function(on)
+    if on then
+        local img = CreateOverlay("rbxassetid://4576475446", 0.4)
+        extraEffects.Vignette = img
+    else
+        RemoveExtraEffect("Vignette")
+    end
+end)
+
+-- 2. Шум
+CreateToggle("📺 Шум", function(on)
+    if on then
+        local noise = Instance.new("ImageLabel")
+        noise.Size = UDim2.new(1, 0, 1, 0)
+        noise.BackgroundTransparency = 1
+        noise.Image = "rbxassetid://648745047"
+        noise.ImageTransparency = 0.5
+        noise.ZIndex = 10
+        if not overlayGui then
+            overlayGui = Instance.new("ScreenGui")
+            overlayGui.Name = "OverlayEffects"
+            overlayGui.Parent = LocalPlayer.PlayerGui
+            overlayGui.ResetOnSpawn = false
+        end
+        noise.Parent = overlayGui
+        extraEffects.Noise = noise
+    else
+        RemoveExtraEffect("Noise")
+    end
+end)
+
+-- 3. CRT Scanlines
+CreateToggle("📺 CRT Scanlines", function(on)
+    if on then
+        local scan = Instance.new("ImageLabel")
+        scan.Size = UDim2.new(1, 0, 1, 0)
+        scan.BackgroundTransparency = 1
+        scan.Image = "rbxassetid://550661047"
+        scan.ImageTransparency = 0.3
+        scan.ZIndex = 10
+        if not overlayGui then
+            overlayGui = Instance.new("ScreenGui")
+            overlayGui.Name = "OverlayEffects"
+            overlayGui.Parent = LocalPlayer.PlayerGui
+            overlayGui.ResetOnSpawn = false
+        end
+        scan.Parent = overlayGui
+        extraEffects.Scanlines = scan
+    else
+        RemoveExtraEffect("Scanlines")
+    end
+end)
+
+-- 4. Инверсия
+CreateToggle("🔄 Инверсия", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = -0.6
+        cc.Saturation = -0.2
+        extraEffects.Invert = cc
+    else
+        RemoveExtraEffect("Invert")
+    end
+end)
+
+-- 5. Монохром
+CreateToggle("⚫ Монохром", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = -1
+        extraEffects.Grayscale = cc
+    else
+        RemoveExtraEffect("Grayscale")
+    end
+end)
+
+-- 6. Сепия
+CreateToggle("🟫 Сепия", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = -0.2
+        cc.TintColor = Color3.fromRGB(180, 140, 100)
+        extraEffects.Sepia = cc
+    else
+        RemoveExtraEffect("Sepia")
+    end
+end)
+
+-- 7. Ночное видение
+CreateToggle("🟢 Ночное видение", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = 0.1
+        cc.TintColor = Color3.fromRGB(0, 255, 50)
+        cc.Contrast = 0.4
+        extraEffects.NightVision = cc
+        Lighting.Brightness = Lighting.Brightness + 1
+    else
+        RemoveExtraEffect("NightVision")
+        Lighting.Brightness = Lighting.Brightness - 1
+    end
+end)
+
+-- 8. Тепловизор
+CreateToggle("🔥 Тепловизор", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = 0.5
+        cc.TintColor = Color3.fromRGB(255, 100, 0)
+        cc.Contrast = 0.6
+        extraEffects.Thermal = cc
+    else
+        RemoveExtraEffect("Thermal")
+    end
+end)
+
+-- 9. Глитч
+CreateToggle("💢 Глитч", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 1.2
+        cc.Saturation = 0.9
+        cc.Brightness = 0.2
+        extraEffects.Glitch = cc
+    else
+        RemoveExtraEffect("Glitch")
+    end
+end)
+
+-- 10. VHS
+CreateToggle("📼 VHS", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.3
+        cc.Saturation = -0.2
+        cc.TintColor = Color3.fromRGB(200, 180, 150)
+        extraEffects.VHS = cc
+        if not extraEffects.Noise then
+            local noise = Instance.new("ImageLabel")
+            noise.Size = UDim2.new(1, 0, 1, 0)
+            noise.BackgroundTransparency = 1
+            noise.Image = "rbxassetid://648745047"
+            noise.ImageTransparency = 0.3
+            noise.ZIndex = 10
+            if not overlayGui then
+                overlayGui = Instance.new("ScreenGui")
+                overlayGui.Name = "OverlayEffects"
+                overlayGui.Parent = LocalPlayer.PlayerGui
+                overlayGui.ResetOnSpawn = false
+            end
+            noise.Parent = overlayGui
+            extraEffects.VHSNoise = noise
+        end
+    else
+        RemoveExtraEffect("VHS")
+        RemoveExtraEffect("VHSNoise")
+    end
+end)
+
+-- 11. Глубина резкости
+CreateToggle("📷 Глубина резкости", function(on)
+    if on then
+        local blur = Instance.new("BlurEffect", Lighting)
+        blur.Size = 12
+        extraEffects.DOF = blur
+    else
+        RemoveExtraEffect("DOF")
+    end
+end)
+
+-- 12. Киношный
+CreateToggle("🎬 Киношный", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.4
+        cc.Saturation = 0.3
+        cc.TintColor = Color3.fromRGB(240, 235, 220)
+        extraEffects.Cinema = cc
+    else
+        RemoveExtraEffect("Cinema")
+    end
+end)
+
+-- 13. Закат
+CreateToggle("🌅 Закат", function(on)
+    if on then
+        Lighting.ClockTime = 18
+        Lighting.Ambient = Color3.fromRGB(255, 150, 100)
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.TintColor = Color3.fromRGB(255, 200, 150)
+        cc.Saturation = 0.2
+        extraEffects.Sunset = cc
+    else
+        RemoveExtraEffect("Sunset")
+        Lighting.ClockTime = 12
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+    end
+end)
+
+-- 14. Ледяной
+CreateToggle("❄️ Ледяной", function(on)
+    if on then
+        Lighting.Ambient = Color3.fromRGB(150, 200, 255)
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.TintColor = Color3.fromRGB(180, 220, 255)
+        cc.Saturation = 0.1
+        extraEffects.Ice = cc
+    else
+        RemoveExtraEffect("Ice")
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+    end
+end)
+
+-- 15. Киберпанк
+CreateToggle("💜 Киберпанк", function(on)
+    if on then
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.5
+        cc.Saturation = 0.6
+        cc.TintColor = Color3.fromRGB(200, 100, 255)
+        extraEffects.Cyber = cc
+        Lighting.Ambient = Color3.fromRGB(50, 0, 100)
+        Lighting.Brightness = 3
+    else
+        RemoveExtraEffect("Cyber")
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = 2
+    end
+end)
+
+-- 16. 👤 БЕЗ ГОЛОВЫ (HEADLESS)
+CreateToggle("👤 Без головы", function(on)
+    headlessActive = on
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
+    if on then
+        -- Сохраняем исходное состояние (если ещё не сохранили)
+        if not extraEffects.HeadlessOriginal then
+            extraEffects.HeadlessOriginal = {
+                HeadTransparency = head.Transparency,
+                Decals = {}
+            }
+            for _, child in pairs(head:GetChildren()) do
+                if child:IsA("Decal") then
+                    table.insert(extraEffects.HeadlessOriginal.Decals, {
+                        object = child,
+                        transparency = child.Transparency
+                    })
+                end
+            end
+        end
+        -- Делаем голову прозрачной
+        head.Transparency = 1
+        for _, child in pairs(head:GetChildren()) do
+            if child:IsA("Decal") then
+                child.Transparency = 1
+            end
+        end
+    else
+        -- Восстанавливаем
+        if extraEffects.HeadlessOriginal then
+            head.Transparency = extraEffects.HeadlessOriginal.HeadTransparency or 0
+            for _, decalInfo in pairs(extraEffects.HeadlessOriginal.Decals or {}) do
+                if decalInfo.object then
+                    decalInfo.object.Transparency = decalInfo.transparency
+                end
+            end
+            extraEffects.HeadlessOriginal = nil
+        else
+            head.Transparency = 0
+            for _, child in pairs(head:GetChildren()) do
+                if child:IsA("Decal") then
+                    child.Transparency = 0
+                end
+            end
+        end
+    end
+end)
+
+-- 17. 🦴 KORBLOX НОГИ (скелетные ноги R15)
+CreateToggle("🦴 Korblox ноги", function(on)
+    korbloxActive = on
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    if not char then return end
+    ApplyKorblox(char, on)
+end)
+
+-- ============================================
+-- КНОПКА СБРОСА (обновлена с учётом KORBLOX и HEADLESS)
+-- ============================================
+CreateToggle("🔄 СБРОС ВСЕХ НАСТРОЕК", function(on)
+    if on then
+        -- Удаляем все эффекты из Lighting
+        for i, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or 
+               v:IsA("SunRaysEffect") or v:IsA("Sky") or v:IsA("Atmosphere") then
+                v:Destroy()
+            end
+        end
+        -- Сбрасываем настройки
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 12
+        Lighting.ExposureCompensation = 0
+        -- Удаляем все дополнительные эффекты (кроме HeadlessOriginal и KorbloxOriginal, их обрабатываем отдельно)
+        for name, obj in pairs(extraEffects) do
+            if name == "HeadlessOriginal" then
+                -- Восстанавливаем голову
+                local char = LocalPlayer.Character
+                if char then
+                    local head = char:FindFirstChild("Head")
+                    if head then
+                        head.Transparency = obj.HeadTransparency or 0
+                        for _, decalInfo in pairs(obj.Decals or {}) do
+                            if decalInfo.object then
+                                decalInfo.object.Transparency = decalInfo.transparency
+                            end
+                        end
+                    end
+                end
+            elseif name == "KorbloxOriginal" then
+                -- Восстанавливаем ноги Korblox
+                local char = LocalPlayer.Character
+                if char then
+                    for partName, originalId in pairs(obj) do
+                        local part = char:FindFirstChild(partName)
+                        if part then
+                            part.MeshId = originalId
+                        end
+                    end
+                end
+            else
+                pcall(function() obj:Destroy() end)
+            end
+        end
+        extraEffects = {}
+        korbloxActive = false
+        headlessActive = false
+        if overlayGui then
+            overlayGui:Destroy()
+            overlayGui = nil
+        end
+        effects = {}
+        -- Обновляем кнопки в GUI
+        for _, btn in pairs(Scroll:GetChildren()) do
+            if btn:IsA("TextButton") then
+                if btn.Text:find("[ВКЛ]") then
+                    btn.Text = btn.Text:gsub("%[ВКЛ%]", "[ВЫКЛ]")
+                    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+                    btn.TextColor3 = Color3.fromRGB(180, 180, 180)
+                end
+            end
+        end
+    end
+end)
+
+print("✅ EXTREME SHADERS + 17 НОВЫХ ФУНКЦИЙ (HEADLESS + KORBLOX) ЗАГРУЖЕНЫ!")
+print("🎨 Нажмите 🎨 для открытия меню")
+print("📊 Всего доступно: 32+ эффектов")
