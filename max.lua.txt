@@ -1,0 +1,1464 @@
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+local VirtualUser = game:GetService("VirtualUser")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+print("=== MaxArt Hub ЗАГРУЖАЕТСЯ ===")
+
+-- TOUCH FLING
+local hiddenfling = false
+if not ReplicatedStorage:FindFirstChild("juisdfj0i32i0eidsuf0iok") then
+    local detection = Instance.new("Decal")
+    detection.Name = "juisdfj0i32i0eidsuf0iok"
+    detection.Parent = ReplicatedStorage
+end
+local function fling()
+    local hrp, c, vel, movel = nil, nil, nil, 0.1
+    local lp = Players.LocalPlayer
+    while true do
+        RunService.Heartbeat:Wait()
+        if hiddenfling then
+            while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
+                RunService.Heartbeat:Wait()
+                c = lp.Character
+                hrp = c and c:FindFirstChild("HumanoidRootPart")
+            end
+            if hiddenfling then
+                vel = hrp.Velocity
+                hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+                RunService.RenderStepped:Wait()
+                if c and c.Parent and hrp and hrp.Parent then hrp.Velocity = vel end
+                RunService.Stepped:Wait()
+                if c and c.Parent and hrp and hrp.Parent then
+                    hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                    movel = movel * -1
+                end
+            end
+        end
+    end
+end
+task.spawn(fling)
+local function toggleTouchFling(v) hiddenfling = v end
+
+-- ===== ТВОИ 4 ФУНКЦИИ =====
+local function GetSilentAimVector(GunInstance, MurdererCharacter)
+    if not MurdererCharacter or not MurdererCharacter:FindFirstChild("HumanoidRootPart") then 
+        return nil 
+    end
+    local GunMuzzle = GunInstance.Handle.Position
+    local TargetPosition = MurdererCharacter.HumanoidRootPart.Position
+    local ModifiedDirection = (TargetPosition - GunMuzzle).Unit
+    return ModifiedDirection
+end
+
+local function LockCameraOnTarget(Camera, TargetCharacter)
+    if not TargetCharacter or not TargetCharacter:FindFirstChild("HumanoidRootPart") then 
+        return 
+    end
+    local TargetPosition = TargetCharacter.HumanoidRootPart.Position
+    pcall(function()
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, TargetPosition)
+    end)
+end
+
+local function CheckTriggerBot(Camera, GunTool, MurdererCharacter)
+    if not MurdererCharacter then return end
+    local ViewportRay = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local RaycastResult = workspace:Raycast(ViewportRay.Origin, ViewportRay.Direction * 1000)
+    if RaycastResult and RaycastResult.Instance and RaycastResult.Instance:IsDescendantOf(MurdererCharacter) then
+        pcall(function()
+            GunTool:Activate()
+        end)
+    end
+end
+
+local function ExecuteKillAll(LocalPlayer, KnifeTool)
+    local MyRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not MyRoot or not KnifeTool then return end
+    KnifeTool.Parent = LocalPlayer.Character
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local enemyRoot = player.Character.HumanoidRootPart
+            pcall(function()
+                MyRoot.CFrame = enemyRoot.CFrame * CFrame.new(0, 0, 1)
+                task.wait(0.05)
+                KnifeTool:Activate()
+            end)
+        end
+    end
+end
+
+-- ===== LOOT GUN =====
+local function ExecuteAutoLoot(LocalPlayer)
+    local Character = LocalPlayer.Character
+    local RootPart = Character and Character:FindFirstChild("HumanoidRootPart")
+    if not RootPart then return end
+    local DroppedGun = workspace:FindFirstChild("GunDrop")
+    if DroppedGun then
+        pcall(function()
+            RootPart.CFrame = DroppedGun.CFrame * CFrame.new(0, 2, 0)
+        end)
+        return true
+    end
+    return false
+end
+local function lootGun()
+    ExecuteAutoLoot(Player)
+end
+
+-- ===== HEADLESS + KORBLOX =====
+local headlessKorbloxEnabled = false
+
+local function ApplyHeadlessKorblox(LocalPlayer, Enabled)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    if Enabled then
+        local head = char:FindFirstChild("Head")
+        if head then
+            head.Transparency = 1
+            for _, child in pairs(head:GetChildren()) do
+                if child:IsA("Decal") then
+                    child.Transparency = 1
+                end
+            end
+        end
+
+        if humanoid.RigType == Enum.HumanoidRigType.R6 then
+            local rightLeg = char:FindFirstChild("Right Leg")
+            if rightLeg then
+                rightLeg.Transparency = 0
+                local mesh = rightLeg:FindFirstChildOfClass("SpecialMesh") or Instance.new("SpecialMesh", rightLeg)
+                mesh.MeshType = Enum.MeshType.FileMesh
+                mesh.MeshId = "rbxassetid://902942093"
+                mesh.TextureId = "rbxassetid://902942118"
+                mesh.Scale = Vector3.new(1.2, 1.2, 1.2)
+                mesh.Offset = Vector3.new(0, -0.1, 0)
+            end
+        else
+            local partsMap = {
+                RightUpperLeg = "rbxassetid://902942110",
+                RightLowerLeg = "rbxassetid://902942093",
+                RightFoot = "rbxassetid://902942089"
+            }
+            for partName, meshId in pairs(partsMap) do
+                local part = char:FindFirstChild(partName)
+                if part then
+                    part.Transparency = 0
+                    local mesh = part:FindFirstChildOfClass("SpecialMesh") or Instance.new("SpecialMesh", part)
+                    mesh.MeshType = Enum.MeshType.FileMesh
+                    mesh.MeshId = meshId
+                    mesh.TextureId = "rbxassetid://902942118"
+                    mesh.Scale = part.Size
+                end
+            end
+        end
+    else
+        local head = char:FindFirstChild("Head")
+        if head then
+            head.Transparency = 0
+            for _, child in pairs(head:GetChildren()) do
+                if child:IsA("Decal") then
+                    child.Transparency = 0
+                end
+            end
+        end
+
+        if humanoid.RigType == Enum.HumanoidRigType.R6 then
+            local rightLeg = char:FindFirstChild("Right Leg")
+            if rightLeg then
+                rightLeg.Transparency = 0
+                local mesh = rightLeg:FindFirstChildOfClass("SpecialMesh")
+                if mesh then mesh:Destroy() end
+            end
+        else
+            for _, partName in pairs({"RightUpperLeg", "RightLowerLeg", "RightFoot"}) do
+                local part = char:FindFirstChild(partName)
+                if part then
+                    part.Transparency = 0
+                    local mesh = part:FindFirstChildOfClass("SpecialMesh")
+                    if mesh then mesh:Destroy() end
+                end
+            end
+        end
+    end
+end
+
+local function toggleHeadlessKorblox(v)
+    headlessKorbloxEnabled = v
+    ApplyHeadlessKorblox(Player, v)
+end
+
+Player.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    if headlessKorbloxEnabled then
+        ApplyHeadlessKorblox(Player, true)
+    end
+end)
+
+-- ===== АНТИ-ФЛИНГ =====
+local antiFlingEnabled = false
+local antiFlingConnection = nil
+
+local function toggleAntiFling(v)
+    antiFlingEnabled = v
+    if antiFlingConnection then
+        antiFlingConnection:Disconnect()
+        antiFlingConnection = nil
+    end
+    
+    if v then
+        antiFlingConnection = RunService.Stepped:Connect(function()
+            for _, CoPlayer in pairs(Players:GetChildren()) do
+                if CoPlayer ~= Player and CoPlayer.Character then
+                    for _, Part in pairs(CoPlayer.Character:GetChildren()) do
+                        if Part.Name == "HumanoidRootPart" then
+                            Part.CanCollide = false
+                        end
+                    end
+                end
+            end
+            
+            for _, Accessory in pairs(workspace:GetChildren()) do
+                if Accessory:IsA("Accessory") and Accessory:FindFirstChildWhichIsA("Part") then
+                    Accessory:FindFirstChildWhichIsA("Part"):Destroy()
+                end
+            end
+        end)
+        print("🛡️ Анти-флинг включен!")
+    else
+        print("🛡️ Анти-флинг выключен!")
+    end
+end
+-- ===== КОНЕЦ АНТИ-ФЛИНГ =====
+
+-- GUN ESP
+local gunESPEnabled = false
+local gunESPObjects = {}
+local function updateGunESP()
+    for _, obj in pairs(gunESPObjects) do pcall(function() obj:Destroy() end) end
+    gunESPObjects = {}
+    if not gunESPEnabled then return end
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("Tool") and v.Name:lower():find("gun") then
+            if v.Parent ~= Player.Character and v.Parent ~= Player.Backpack then
+                local handle = v:FindFirstChild("Handle")
+                if handle then
+                    local hl = Instance.new("Highlight")
+                    hl.Parent = handle
+                    hl.FillColor = Color3.fromRGB(255, 255, 0)
+                    hl.Adornee = handle
+                    table.insert(gunESPObjects, hl)
+                end
+            end
+        end
+    end
+end
+local function toggleGunESP(v)
+    gunESPEnabled = v
+    if v then
+        task.spawn(function() while gunESPEnabled do updateGunESP() task.wait(0.5) end end)
+    else
+        for _, obj in pairs(gunESPObjects) do pcall(function() obj:Destroy() end) end
+        gunESPObjects = {}
+    end
+end
+
+-- WALL HOP
+local WallHopConfig = {Enabled = false, HopPower = 60, ForwardCheck = 3, RotationBounce = true, RotationDelay = 0.12}
+local wallHopCharacter = Player.Character or Player.CharacterAdded:Wait()
+local function toggleWallHop(v)
+    WallHopConfig.Enabled = v
+end
+local function getWallHopComponents()
+    if not wallHopCharacter or not wallHopCharacter.Parent then wallHopCharacter = Player.Character or Player.CharacterAdded:Wait() end
+    return wallHopCharacter, wallHopCharacter:FindFirstChildOfClass("Humanoid"), wallHopCharacter:FindFirstChild("HumanoidRootPart")
+end
+local function isTouchingWall(hrp)
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {wallHopCharacter}
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    return workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * WallHopConfig.ForwardCheck, params)
+end
+local function performHop()
+    local char, humanoid, hrp = getWallHopComponents()
+    if not (humanoid and hrp) or humanoid:GetState() == Enum.HumanoidStateType.Dead then return end
+    if humanoid.FloorMaterial == Enum.Material.Air and isTouchingWall(hrp) then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        hrp.Velocity = Vector3.new(hrp.Velocity.X, WallHopConfig.HopPower, hrp.Velocity.Z)
+        if WallHopConfig.RotationBounce then
+            local originalAutoRotate = humanoid.AutoRotate
+            humanoid.AutoRotate = false
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(-180), 0)
+            task.delay(WallHopConfig.RotationDelay, function()
+                if hrp and hrp.Parent then hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(180), 0) end
+                if humanoid and humanoid.Parent then humanoid.AutoRotate = originalAutoRotate end
+            end)
+        end
+    end
+end
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if WallHopConfig.Enabled and input.KeyCode == Enum.KeyCode.E then performHop() end
+end)
+
+-- FLING (простой)
+local function FlingPlayer(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local tr = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if tr then tr.Velocity = Vector3.new(10000, 10000, 10000) end
+end
+
+-- ROLES
+local function getRole(plr)
+    if not plr or not plr.Character then return "Innocent" end
+    local char = plr.Character
+    for _, tool in ipairs(char:GetChildren()) do if tool:IsA("Tool") then
+        if tool.Name:lower():find("knife") then return "Murderer" end
+        if tool.Name:lower():find("gun") then return "Sheriff" end
+    end end
+    if plr.Backpack then for _, tool in ipairs(plr.Backpack:GetChildren()) do if tool:IsA("Tool") then
+        if tool.Name:lower():find("knife") then return "Murderer" end
+        if tool.Name:lower():find("gun") then return "Sheriff" end
+    end end end
+    return "Innocent"
+end
+local function getRoleColor(role)
+    if role == "Murderer" then return Color3.fromRGB(220, 40, 40) end
+    if role == "Sheriff" then return Color3.fromRGB(40, 120, 255) end
+    return Color3.fromRGB(50, 205, 50)
+end
+local function TeleportToPlayer(targetPlayer)
+    if not targetPlayer or not targetPlayer.Character then return end
+    local tr = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if tr and Player.Character then
+        local root = Player.Character:FindFirstChild("HumanoidRootPart")
+        if root then root.CFrame = tr.CFrame * CFrame.new(0, 2, 3) end
+    end
+end
+
+-- ESP
+local DEFAULT_COLOR = Color3.fromRGB(50, 205, 50)
+local KNIFE_COLOR = Color3.fromRGB(220, 40, 40)
+local GUN_COLOR = Color3.fromRGB(40, 120, 255)
+local HL_TAG = "_WH"
+local BB_TAG = "_WBB"
+local trackedData = {}
+local espEnabled = true
+local weaponKeywords = {
+    { pattern = "gun", priority = 2, color = GUN_COLOR },
+    { pattern = "knife", priority = 1, color = KNIFE_COLOR },
+}
+local function clearESP(player, character)
+    local hl = character:FindFirstChild(HL_TAG)
+    if hl then hl:Destroy() end
+    local head = character:FindFirstChild("Head")
+    if head then
+        local bb = head:FindFirstChild(BB_TAG)
+        if bb then bb:Destroy() end
+    end
+end
+local function detectWeaponColor(character, player)
+    local best, bestPrio = nil, 0
+    local function checkTool(tool)
+        if not tool:IsA("Tool") then return end
+        local lower = tool.Name:lower()
+        for _, entry in ipairs(weaponKeywords) do
+            if lower:find(entry.pattern) and entry.priority > bestPrio then
+                bestPrio = entry.priority
+                best = entry.color
+            end
+        end
+    end
+    for _, obj in ipairs(character:GetChildren()) do checkTool(obj) end
+    local bp = player:FindFirstChildOfClass("Backpack")
+    if bp then for _, obj in ipairs(bp:GetChildren()) do checkTool(obj) end end
+    return best or DEFAULT_COLOR
+end
+local function getOrMakeHighlight(character)
+    local h = character:FindFirstChild(HL_TAG)
+    if h and h:IsA("Highlight") then return h end
+    if h then h:Destroy() end
+    local hl = Instance.new("Highlight")
+    hl.Name = HL_TAG
+    hl.Adornee = character
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.FillTransparency = 1
+    hl.OutlineTransparency = 0
+    hl.FillColor = DEFAULT_COLOR
+    hl.OutlineColor = DEFAULT_COLOR
+    hl.Parent = character
+    return hl
+end
+local function getOrMakeBillboard(character, playerName)
+    local head = character:FindFirstChild("Head")
+    if not head then return nil end
+    local bb = head:FindFirstChild(BB_TAG)
+    if bb and bb:IsA("BillboardGui") then return bb:FindFirstChild("NameLabel") end
+    if bb then bb:Destroy() end
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = BB_TAG
+    billboard.Adornee = head
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 140, 0, 26)
+    billboard.StudsOffset = Vector3.new(0, 2.6, 0)
+    billboard.ResetOnSpawn = false
+    billboard.Parent = head
+    local label = Instance.new("TextLabel")
+    label.Name = "NameLabel"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = playerName
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 13
+    label.TextColor3 = DEFAULT_COLOR
+    label.TextStrokeTransparency = 1
+    label.Parent = billboard
+    return label
+end
+local function updatePlayer(player)
+    if player == Player then return end
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    if not espEnabled then clearESP(player, character) return end
+    local color = detectWeaponColor(character, player)
+    local hl = getOrMakeHighlight(character)
+    hl.OutlineColor = color
+    hl.FillColor = color
+    local label = getOrMakeBillboard(character, player.DisplayName)
+    if label then label.TextColor3 = color end
+end
+local function hookCharacter(player, character)
+    character:WaitForChild("HumanoidRootPart", 10)
+    local conn = RunService.Heartbeat:Connect(function()
+        if not character.Parent then return end
+        updatePlayer(player)
+    end)
+    local prev = trackedData[player]
+    if prev then
+        if prev.conn then prev.conn:Disconnect() end
+        if prev.character then clearESP(player, prev.character) end
+    end
+    trackedData[player] = { conn = conn, character = character }
+    character.AncestryChanged:Connect(function(_, parent)
+        if not parent and trackedData[player] and trackedData[player].character == character then conn:Disconnect() end
+    end)
+end
+local function hookPlayer(player)
+    if player == Player then return end
+    if player.Character then task.spawn(hookCharacter, player, player.Character) end
+    player.CharacterAdded:Connect(function(character) task.spawn(hookCharacter, player, character) end)
+end
+local function toggleESP(v)
+    espEnabled = v
+    if not v then
+        for p, data in pairs(trackedData) do
+            if data.character then clearESP(p, data.character) end
+        end
+    end
+end
+for _, player in ipairs(Players:GetPlayers()) do task.spawn(hookPlayer, player) end
+Players.PlayerAdded:Connect(hookPlayer)
+Players.PlayerRemoving:Connect(function(player)
+    local data = trackedData[player]
+    if not data then return end
+    if data.conn then data.conn:Disconnect() end
+    if data.character then clearESP(player, data.character) end
+    trackedData[player] = nil
+end)
+
+-- ===== АИМБОТ 1 (СТАРЫЙ) =====
+local aimbotEnabled = false
+local aimbotConnection = nil
+local aimbotTarget = "Head"
+local aimbotFOV = 1000
+local aimbotSmoothness = 0.5
+local function getNearestMurderer()
+    local root = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    local murderer, dist = nil, aimbotFOV
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player and plr.Character then
+            local tr = plr.Character:FindFirstChild("HumanoidRootPart")
+            if tr and getRole(plr) == "Murderer" then
+                local d = (tr.Position - root.Position).Magnitude
+                if d < dist then dist = d murderer = plr end
+            end
+        end
+    end
+    return murderer
+end
+local function toggleAimbot(v)
+    aimbotEnabled = v
+    if aimbotConnection then aimbotConnection:Disconnect() aimbotConnection = nil end
+    if v then
+        aimbotConnection = RunService.RenderStepped:Connect(function()
+            if not aimbotEnabled then return end
+            local char = Player.Character
+            if not char then return end
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            local m = getNearestMurderer()
+            if m and m.Character then
+                local targetPart = aimbotTarget == "Head" and m.Character:FindFirstChild("Head") or m.Character:FindFirstChild("HumanoidRootPart")
+                if targetPart then
+                    local targetPos = targetPart.Position
+                    local rootPos = root.Position
+                    local flatTarget = Vector3.new(targetPos.X, rootPos.Y, targetPos.Z)
+                    if (flatTarget - rootPos).Magnitude > 0.5 then
+                        root.CFrame = root.CFrame:Lerp(CFrame.lookAt(rootPos, flatTarget), aimbotSmoothness)
+                    end
+                    Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, targetPos), aimbotSmoothness)
+                end
+            end
+        end)
+    end
+end
+local function setAimbotTarget(target)
+    aimbotTarget = target
+    if aimbotEnabled then toggleAimbot(false) toggleAimbot(true) end
+end
+
+-- ===== АИМБОТ 2 (НОВЫЙ) =====
+local aimbot2Enabled = false
+local aimbot2Connection = nil
+local function toggleAimbot2(v)
+    aimbot2Enabled = v
+    if aimbot2Connection then
+        aimbot2Connection:Disconnect()
+        aimbot2Connection = nil
+    end
+    if v then
+        aimbot2Connection = RunService.RenderStepped:Connect(function()
+            if not aimbot2Enabled then return end
+            local character = Player.Character
+            if not character then return end
+            local root = character:FindFirstChild("HumanoidRootPart")
+            if not root then return end
+            local targetMurderer = nil
+            local minDist = 1000
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= Player and plr.Character then
+                    local role = getRole(plr)
+                    if role == "Murderer" then
+                        local tr = plr.Character:FindFirstChild("HumanoidRootPart")
+                        if tr then
+                            local dist = (tr.Position - root.Position).Magnitude
+                            if dist < minDist then
+                                minDist = dist
+                                targetMurderer = plr
+                            end
+                        end
+                    end
+                end
+            end
+            if targetMurderer and targetMurderer.Character then
+                LockCameraOnTarget(Camera, targetMurderer.Character)
+            end
+        end)
+    end
+end
+
+-- ===== FAKE BOMB =====
+local function fakeBomb()
+    local LocalPlayer = Players.LocalPlayer
+    local bombAmount = 50
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("FakeBomb") then
+        for i = 1, bombAmount do
+            LocalPlayer.Character.FakeBomb.Remote:FireServer(LocalPlayer.Character.Head.CFrame, 50)
+            task.wait(0.01)
+        end
+        print("💥 Fake Bomb activated! (" .. bombAmount .. " times)")
+    else
+        print("❌ FakeBomb not found!")
+    end
+end
+
+-- SPEED GLITCH
+local speedGlitchEnabled = false
+local speedValue = 100
+local speedGlitchConnection = nil
+local function toggleSpeedGlitch(v)
+    speedGlitchEnabled = v
+    if speedGlitchConnection then speedGlitchConnection:Disconnect() speedGlitchConnection = nil end
+    if v then
+        speedGlitchConnection = RunService.Heartbeat:Connect(function()
+            local char = Player.Character
+            if char then local h = char:FindFirstChild("Humanoid")
+                if h then
+                    if h:GetState() == Enum.HumanoidStateType.Jumping or h:GetState() == Enum.HumanoidStateType.Freefall then h.WalkSpeed = speedValue else h.WalkSpeed = 16 end
+                end
+            end
+        end)
+    else
+        if Player.Character and Player.Character:FindFirstChild("Humanoid") then Player.Character.Humanoid.WalkSpeed = 16 end
+    end
+end
+
+-- NO CLIP
+local noClipEnabled = false
+local noClipConnection = nil
+local function toggleNoClip(v)
+    noClipEnabled = v
+    if noClipConnection then noClipConnection:Disconnect() noClipConnection = nil end
+    if v then
+        noClipConnection = RunService.Heartbeat:Connect(function()
+            if Player.Character then for _, p in ipairs(Player.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
+        end)
+    else
+        if Player.Character then for _, p in ipairs(Player.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = true end end end
+    end
+end
+
+-- ANTI-AFK
+local antiAFKConnection = nil
+local function toggleAntiAFK(v)
+    if antiAFKConnection then antiAFKConnection:Disconnect() antiAFKConnection = nil end
+    if v then antiAFKConnection = Player.Idled:Connect(function() VirtualUser:CaptureController() VirtualUser:ClickButton2(Vector2.new()) end) end
+end
+
+-- HANDJOB
+local function toggleHandjob(v)
+    if v then loadstring(game:HttpGet("https://pastefy.app/YZoglOyJ/raw"))() end
+end
+
+-- CHAMS
+local chamsEnabled = false
+local chamsHighlights = {}
+local chamsColor = Color3.fromRGB(255, 0, 0)
+local function toggleChams(v)
+    chamsEnabled = v
+    if v then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= Player and plr.Character and not chamsHighlights[plr] then
+                local hl = Instance.new("Highlight")
+                hl.Parent = plr.Character
+                hl.FillColor = chamsColor
+                hl.Adornee = plr.Character
+                chamsHighlights[plr] = hl
+            end
+        end
+    else
+        for plr, hl in pairs(chamsHighlights) do if hl then hl:Destroy() end end
+        chamsHighlights = {}
+    end
+end
+
+-- FOG
+local fogEnabled = false
+local fogColor = Color3.fromRGB(180, 200, 220)
+local fogDensity = 450
+local originalFogEnd = Lighting.FogEnd
+local function toggleFog(v)
+    fogEnabled = v
+    if v then
+        Lighting.FogEnd = fogDensity
+        Lighting.FogColor = fogColor
+    else
+        Lighting.FogEnd = originalFogEnd
+    end
+end
+local function setFogColor(color) fogColor = color if fogEnabled then Lighting.FogColor = color end end
+local function setFogDensity(val) fogDensity = val if fogEnabled then Lighting.FogEnd = val end end
+
+-- COLOR PICKER
+local function CreateColorPicker(parent, name, yPos, defaultColor, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = defaultColor
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.Gotham
+    btn.Parent = parent
+    local colors = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255), Color3.fromRGB(255,255,0), Color3.fromRGB(255,0,255), Color3.fromRGB(0,255,255), Color3.fromRGB(255,255,255), Color3.fromRGB(255,100,0)}
+    local colorIndex = 1
+    for i, c in ipairs(colors) do if c == defaultColor then colorIndex = i break end end
+    btn.MouseButton1Click:Connect(function()
+        colorIndex = colorIndex % #colors + 1
+        local newColor = colors[colorIndex]
+        btn.BackgroundColor3 = newColor
+        callback(newColor)
+    end)
+end
+
+-- ============================================
+-- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЭФФЕКТОВ
+-- ============================================
+local extraEffects = {}
+local overlayGui = nil
+local effects = {}
+
+-- ============================================
+-- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ЭФФЕКТОВ
+-- ============================================
+local function CreateOverlay(texture, transparency)
+    if not overlayGui then
+        overlayGui = Instance.new("ScreenGui")
+        overlayGui.Name = "OverlayEffects"
+        overlayGui.Parent = Player.PlayerGui
+        overlayGui.ResetOnSpawn = false
+    end
+    local img = Instance.new("ImageLabel")
+    img.Size = UDim2.new(1, 0, 1, 0)
+    img.Position = UDim2.new(0, 0, 0, 0)
+    img.BackgroundTransparency = 1
+    img.Image = texture or "rbxassetid://4576475446"
+    img.ImageTransparency = transparency or 0.3
+    img.ZIndex = 10
+    img.Parent = overlayGui
+    return img
+end
+
+local function RemoveExtraEffect(name)
+    if extraEffects[name] then
+        if extraEffects[name]:IsA("ImageLabel") or extraEffects[name]:IsA("Frame") then
+            extraEffects[name]:Destroy()
+        else
+            pcall(function() extraEffects[name]:Destroy() end)
+        end
+        extraEffects[name] = nil
+    end
+end
+
+local function ResetAllEffects()
+    for i, v in pairs(Lighting:GetChildren()) do
+        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") or 
+           v:IsA("SunRaysEffect") or v:IsA("Sky") or v:IsA("Atmosphere") then
+            v:Destroy()
+        end
+    end
+    Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+    Lighting.Brightness = 2
+    Lighting.ClockTime = 12
+    Lighting.ExposureCompensation = 0
+    for name, obj in pairs(extraEffects) do
+        pcall(function() obj:Destroy() end)
+    end
+    extraEffects = {}
+    if overlayGui then
+        overlayGui:Destroy()
+        overlayGui = nil
+    end
+    effects = {}
+end
+
+-- ============================================
+-- GUI ОСНОВНОЕ
+-- ============================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MaxArtHub"
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = true
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 400, 0, 750)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -375)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+MainFrame.BorderSizePixel = 2
+MainFrame.Parent = ScreenGui
+MainFrame.Draggable = true
+MainFrame.Active = true
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Title.Text = "MaxArt Hub"
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 3)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextScaled = true
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = MainFrame
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(1, 0, 0, 30)
+TabContainer.Position = UDim2.new(0, 0, 0, 35)
+TabContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+TabContainer.Parent = MainFrame
+
+local MainTab = Instance.new("TextButton")
+MainTab.Size = UDim2.new(0.5, 0, 1, 0)
+MainTab.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainTab.Text = "Главная"
+MainTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+MainTab.TextScaled = true
+MainTab.Font = Enum.Font.GothamBold
+MainTab.Parent = TabContainer
+
+local VisualTab = Instance.new("TextButton")
+VisualTab.Size = UDim2.new(0.5, 0, 1, 0)
+VisualTab.Position = UDim2.new(0.5, 0, 0, 0)
+VisualTab.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+VisualTab.Text = "Визуал"
+VisualTab.TextColor3 = Color3.fromRGB(255, 215, 0)
+VisualTab.TextScaled = true
+VisualTab.Font = Enum.Font.GothamBold
+VisualTab.Parent = TabContainer
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -65)
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 65)
+ScrollingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 1050)
+ScrollingFrame.Parent = MainFrame
+
+local VisualScrollingFrame = Instance.new("ScrollingFrame")
+VisualScrollingFrame.Size = UDim2.new(1, 0, 1, -65)
+VisualScrollingFrame.Position = UDim2.new(0, 0, 0, 65)
+VisualScrollingFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+VisualScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 3000)
+VisualScrollingFrame.Parent = MainFrame
+VisualScrollingFrame.Visible = false
+
+MainTab.MouseButton1Click:Connect(function() 
+    ScrollingFrame.Visible = true 
+    VisualScrollingFrame.Visible = false 
+end)
+VisualTab.MouseButton1Click:Connect(function() 
+    ScrollingFrame.Visible = false 
+    VisualScrollingFrame.Visible = true 
+end)
+
+-- ФУНКЦИИ СОЗДАНИЯ КНОПОК
+local function CreateToggle(parent, name, yPos, callback)
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(1, -20, 0, 32)
+    toggle.Position = UDim2.new(0, 10, 0, yPos)
+    toggle.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    toggle.Text = name .. ": OFF"
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.TextScaled = true
+    toggle.Font = Enum.Font.Gotham
+    toggle.Parent = parent
+    local enabled = false
+    toggle.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        toggle.BackgroundColor3 = enabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+        toggle.Text = name .. (enabled and ": ON" or ": OFF")
+        callback(enabled)
+    end)
+    return toggle
+end
+
+local function CreateButton(parent, name, yPos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    btn.BorderColor3 = Color3.fromRGB(255, 215, 0)
+    btn.BorderSizePixel = 1
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = parent
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function CreateSlider(parent, name, yPos, minVal, maxVal, defaultVal, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -20, 0, 40)
+    container.Position = UDim2.new(0, 10, 0, yPos)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 15)
+    label.BackgroundTransparency = 1
+    label.Text = name .. ": " .. defaultVal
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.Font = Enum.Font.Gotham
+    label.Parent = container
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(1, 0, 0, 10)
+    track.Position = UDim2.new(0, 0, 0, 25)
+    track.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    track.Parent = container
+    Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    fill.Parent = track
+    local handle = Instance.new("TextButton")
+    handle.Size = UDim2.new(0, 18, 0, 18)
+    handle.Position = UDim2.new(0, -9, 0.5, -9)
+    handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    handle.Text = ""
+    handle.Parent = track
+    Instance.new("UICorner", handle).CornerRadius = UDim.new(1, 0)
+    local currentValue = defaultVal
+    local dragging = false
+    local function setFromPosition(x)
+        local trackWidth = track.AbsoluteSize.X
+        local relativeX = math.clamp(x, 0, trackWidth)
+        local percent = relativeX / trackWidth
+        currentValue = minVal + (maxVal - minVal) * percent
+        currentValue = math.round(currentValue * 100) / 100
+        label.Text = name .. ": " .. currentValue
+        handle.Position = UDim2.new(percent, -9, 0.5, -9)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        callback(currentValue)
+    end
+    handle.MouseButton1Down:Connect(function(input) dragging = true setFromPosition(input.Position.X - track.AbsolutePosition.X) end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            setFromPosition(input.Position.X - track.AbsolutePosition.X)
+        end
+    end)
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true setFromPosition(input.Position.X - track.AbsolutePosition.X) end
+    end)
+    setFromPosition((defaultVal - minVal) / (maxVal - minVal) * track.AbsoluteSize.X)
+    return { GetValue = function() return currentValue end }
+end
+
+-- ============================================
+-- ВИЗУАЛЬНАЯ ВКЛАДКА
+-- ============================================
+local vy = 10
+
+CreateToggle(VisualScrollingFrame, "👻 Шейдеры (Chams)", vy, toggleChams)
+vy = vy + 40
+CreateColorPicker(VisualScrollingFrame, "Цвет шейдеров", vy, chamsColor, function(color) chamsColor = color end)
+vy = vy + 40
+CreateToggle(VisualScrollingFrame, "🌫️ Туман", vy, toggleFog)
+vy = vy + 40
+CreateColorPicker(VisualScrollingFrame, "Цвет тумана", vy, fogColor, function(color) setFogColor(color) end)
+vy = vy + 40
+CreateSlider(VisualScrollingFrame, "Плотность тумана", vy, 100, 1000, fogDensity, function(val) setFogDensity(val) end)
+vy = vy + 50
+CreateToggle(VisualScrollingFrame, "🔫 Gun ESP", vy, toggleGunESP)
+vy = vy + 40
+CreateSlider(VisualScrollingFrame, "FOV", vy, 20, 120, 70, function(val) Camera.FieldOfView = val end)
+vy = vy + 50
+
+local function AddEffectToggle(name, createFn, destroyFn)
+    CreateToggle(VisualScrollingFrame, name, vy, function(on)
+        if on then
+            createFn()
+        else
+            destroyFn()
+        end
+    end)
+    vy = vy + 40
+end
+
+AddEffectToggle("💡 Bloom",
+    function()
+        local b = Instance.new("BloomEffect", Lighting)
+        b.Intensity = 0.3
+        b.Size = 10
+        b.Threshold = 0.8
+        effects.Bloom = b
+    end,
+    function()
+        if effects.Bloom then effects.Bloom:Destroy() end
+    end
+)
+
+AddEffectToggle("🌀 Размытие",
+    function()
+        local b = Instance.new("BlurEffect", Lighting)
+        b.Size = 5
+        effects.Blur = b
+    end,
+    function()
+        if effects.Blur then effects.Blur:Destroy() end
+    end
+)
+
+AddEffectToggle("🎨 Цветокоррекция",
+    function()
+        local c = Instance.new("ColorCorrectionEffect", Lighting)
+        c.Brightness = 0.1
+        c.Contrast = 0.5
+        c.Saturation = -0.3
+        c.TintColor = Color3.fromRGB(255, 235, 203)
+        effects.ColorCor = c
+    end,
+    function()
+        if effects.ColorCor then effects.ColorCor:Destroy() end
+    end
+)
+
+AddEffectToggle("☀️ Солнечные лучи",
+    function()
+        local s = Instance.new("SunRaysEffect", Lighting)
+        s.Intensity = 0.075
+        s.Spread = 0.727
+        effects.SunRays = s
+    end,
+    function()
+        if effects.SunRays then effects.SunRays:Destroy() end
+    end
+)
+
+AddEffectToggle("🌌 Атмосфера",
+    function()
+        local a = Instance.new("Atmosphere", Lighting)
+        a.Density = 0.364
+        a.Offset = 0.556
+        a.Color = Color3.fromRGB(199, 175, 166)
+        a.Decay = Color3.fromRGB(44, 39, 33)
+        a.Glare = 0.36
+        a.Haze = 1.72
+        effects.Atm = a
+    end,
+    function()
+        if effects.Atm then effects.Atm:Destroy() end
+    end
+)
+
+AddEffectToggle("🌑 Виньетка",
+    function()
+        local img = CreateOverlay("rbxassetid://4576475446", 0.4)
+        extraEffects.Vignette = img
+    end,
+    function()
+        RemoveExtraEffect("Vignette")
+    end
+)
+
+AddEffectToggle("📺 Шум",
+    function()
+        local noise = Instance.new("ImageLabel")
+        noise.Size = UDim2.new(1, 0, 1, 0)
+        noise.BackgroundTransparency = 1
+        noise.Image = "rbxassetid://648745047"
+        noise.ImageTransparency = 0.5
+        noise.ZIndex = 10
+        if not overlayGui then
+            overlayGui = Instance.new("ScreenGui")
+            overlayGui.Name = "OverlayEffects"
+            overlayGui.Parent = Player.PlayerGui
+            overlayGui.ResetOnSpawn = false
+        end
+        noise.Parent = overlayGui
+        extraEffects.Noise = noise
+    end,
+    function()
+        RemoveExtraEffect("Noise")
+    end
+)
+
+AddEffectToggle("📺 CRT Scanlines",
+    function()
+        local scan = Instance.new("ImageLabel")
+        scan.Size = UDim2.new(1, 0, 1, 0)
+        scan.BackgroundTransparency = 1
+        scan.Image = "rbxassetid://550661047"
+        scan.ImageTransparency = 0.3
+        scan.ZIndex = 10
+        if not overlayGui then
+            overlayGui = Instance.new("ScreenGui")
+            overlayGui.Name = "OverlayEffects"
+            overlayGui.Parent = Player.PlayerGui
+            overlayGui.ResetOnSpawn = false
+        end
+        scan.Parent = overlayGui
+        extraEffects.Scanlines = scan
+    end,
+    function()
+        RemoveExtraEffect("Scanlines")
+    end
+)
+
+AddEffectToggle("🔄 Инверсия",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = -0.6
+        cc.Saturation = -0.2
+        extraEffects.Invert = cc
+    end,
+    function()
+        RemoveExtraEffect("Invert")
+    end
+)
+
+AddEffectToggle("⚫ Монохром",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = -1
+        extraEffects.Grayscale = cc
+    end,
+    function()
+        RemoveExtraEffect("Grayscale")
+    end
+)
+
+AddEffectToggle("🟫 Сепия",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = -0.2
+        cc.TintColor = Color3.fromRGB(180, 140, 100)
+        extraEffects.Sepia = cc
+    end,
+    function()
+        RemoveExtraEffect("Sepia")
+    end
+)
+
+AddEffectToggle("🟢 Ночное видение",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = 0.1
+        cc.TintColor = Color3.fromRGB(0, 255, 50)
+        cc.Contrast = 0.4
+        extraEffects.NightVision = cc
+        Lighting.Brightness = Lighting.Brightness + 1
+    end,
+    function()
+        RemoveExtraEffect("NightVision")
+        Lighting.Brightness = Lighting.Brightness - 1
+    end
+)
+
+AddEffectToggle("🔥 Тепловизор",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Saturation = 0.5
+        cc.TintColor = Color3.fromRGB(255, 100, 0)
+        cc.Contrast = 0.6
+        extraEffects.Thermal = cc
+    end,
+    function()
+        RemoveExtraEffect("Thermal")
+    end
+)
+
+AddEffectToggle("💢 Глитч",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 1.2
+        cc.Saturation = 0.9
+        cc.Brightness = 0.2
+        extraEffects.Glitch = cc
+    end,
+    function()
+        RemoveExtraEffect("Glitch")
+    end
+)
+
+AddEffectToggle("📼 VHS",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.3
+        cc.Saturation = -0.2
+        cc.TintColor = Color3.fromRGB(200, 180, 150)
+        extraEffects.VHS = cc
+        if not extraEffects.Noise then
+            local noise = Instance.new("ImageLabel")
+            noise.Size = UDim2.new(1, 0, 1, 0)
+            noise.BackgroundTransparency = 1
+            noise.Image = "rbxassetid://648745047"
+            noise.ImageTransparency = 0.3
+            noise.ZIndex = 10
+            if not overlayGui then
+                overlayGui = Instance.new("ScreenGui")
+                overlayGui.Name = "OverlayEffects"
+                overlayGui.Parent = Player.PlayerGui
+                overlayGui.ResetOnSpawn = false
+            end
+            noise.Parent = overlayGui
+            extraEffects.VHSNoise = noise
+        end
+    end,
+    function()
+        RemoveExtraEffect("VHS")
+        RemoveExtraEffect("VHSNoise")
+    end
+)
+
+AddEffectToggle("📷 Глубина резкости",
+    function()
+        local blur = Instance.new("BlurEffect", Lighting)
+        blur.Size = 12
+        extraEffects.DOF = blur
+    end,
+    function()
+        RemoveExtraEffect("DOF")
+    end
+)
+
+AddEffectToggle("🎬 Киношный",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.4
+        cc.Saturation = 0.3
+        cc.TintColor = Color3.fromRGB(240, 235, 220)
+        extraEffects.Cinema = cc
+    end,
+    function()
+        RemoveExtraEffect("Cinema")
+    end
+)
+
+AddEffectToggle("🌅 Закат",
+    function()
+        Lighting.ClockTime = 18
+        Lighting.Ambient = Color3.fromRGB(255, 150, 100)
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.TintColor = Color3.fromRGB(255, 200, 150)
+        cc.Saturation = 0.2
+        extraEffects.Sunset = cc
+    end,
+    function()
+        RemoveExtraEffect("Sunset")
+        Lighting.ClockTime = 12
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+    end
+)
+
+AddEffectToggle("❄️ Ледяной",
+    function()
+        Lighting.Ambient = Color3.fromRGB(150, 200, 255)
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.TintColor = Color3.fromRGB(180, 220, 255)
+        cc.Saturation = 0.1
+        extraEffects.Ice = cc
+    end,
+    function()
+        RemoveExtraEffect("Ice")
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+    end
+)
+
+AddEffectToggle("💜 Киберпанк",
+    function()
+        local cc = Instance.new("ColorCorrectionEffect", Lighting)
+        cc.Contrast = 0.5
+        cc.Saturation = 0.6
+        cc.TintColor = Color3.fromRGB(200, 100, 255)
+        extraEffects.Cyber = cc
+        Lighting.Ambient = Color3.fromRGB(50, 0, 100)
+        Lighting.Brightness = 3
+    end,
+    function()
+        RemoveExtraEffect("Cyber")
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.Brightness = 2
+    end
+)
+
+CreateSlider(VisualScrollingFrame, "Яркость", vy, 0, 10, 2.25, function(v)
+    Lighting.Brightness = v
+end)
+vy = vy + 50
+
+CreateSlider(VisualScrollingFrame, "Время суток", vy, 0, 24, 17, function(v)
+    Lighting.ClockTime = v
+end)
+vy = vy + 50
+
+CreateSlider(VisualScrollingFrame, "Интенсивность Bloom", vy, 0, 3, 0.3, function(v)
+    if effects.Bloom then
+        effects.Bloom.Intensity = v
+    end
+end)
+vy = vy + 50
+
+CreateSlider(VisualScrollingFrame, "Размер Bloom", vy, 0, 50, 10, function(v)
+    if effects.Bloom then
+        effects.Bloom.Size = v
+    end
+end)
+vy = vy + 50
+
+CreateSlider(VisualScrollingFrame, "Контраст", vy, -1, 1, 0.5, function(v)
+    if effects.ColorCor then
+        effects.ColorCor.Contrast = v
+    end
+end)
+vy = vy + 50
+
+CreateToggle(VisualScrollingFrame, "🔄 СБРОС ВСЕХ ЭФФЕКТОВ", vy, function(on)
+    if on then
+        ResetAllEffects()
+        for _, btn in pairs(VisualScrollingFrame:GetChildren()) do
+            if btn:IsA("TextButton") and btn.Text:find("[ВКЛ]") then
+                btn.Text = btn.Text:gsub("%[ВКЛ%]", "[ВЫКЛ]")
+                btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+                btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end
+        end
+    end
+end)
+vy = vy + 40
+
+VisualScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, vy + 50)
+
+-- ============================================
+-- ГЛАВНАЯ ВКЛАДКА
+-- ============================================
+local PlayersMenu = nil
+local function OpenPlayersMenu()
+    if PlayersMenu then PlayersMenu:Destroy() PlayersMenu = nil return end
+    PlayersMenu = Instance.new("ScreenGui")
+    PlayersMenu.Parent = Player:WaitForChild("PlayerGui")
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 400)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -200)
+    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    frame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+    frame.BorderSizePixel = 2
+    frame.Draggable = true
+    frame.Active = true
+    frame.Parent = PlayersMenu
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    title.Text = "👥 ИГРОКИ"
+    title.TextColor3 = Color3.fromRGB(255, 215, 0)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.Parent = frame
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 30, 0, 30)
+    close.Position = UDim2.new(1, -35, 0, 3)
+    close.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+    close.Text = "X"
+    close.TextColor3 = Color3.fromRGB(255, 255, 255)
+    close.Parent = frame
+    close.MouseButton1Click:Connect(function() PlayersMenu:Destroy() PlayersMenu = nil end)
+    local list = Instance.new("ScrollingFrame")
+    list.Size = UDim2.new(1, 0, 1, -35)
+    list.Position = UDim2.new(0, 0, 0, 35)
+    list.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    list.Parent = frame
+    local y = 10
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player then
+            local card = Instance.new("Frame")
+            card.Size = UDim2.new(1, -20, 0, 50)
+            card.Position = UDim2.new(0, 10, 0, y)
+            card.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            card.Parent = list
+            local avatar = Instance.new("ImageLabel")
+            avatar.Size = UDim2.new(0, 40, 0, 40)
+            avatar.Position = UDim2.new(0, 5, 0, 5)
+            avatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. plr.UserId .. "&w=100&h=100"
+            avatar.Parent = card
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(0, 140, 0, 20)
+            nameLabel.Position = UDim2.new(0, 50, 0, 5)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = plr.Name
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            nameLabel.TextScaled = true
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.Parent = card
+            local roleLabel = Instance.new("TextLabel")
+            roleLabel.Size = UDim2.new(0, 140, 0, 15)
+            roleLabel.Position = UDim2.new(0, 50, 0, 30)
+            roleLabel.BackgroundTransparency = 1
+            roleLabel.Text = getRole(plr)
+            roleLabel.TextColor3 = getRoleColor(getRole(plr))
+            roleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            roleLabel.TextScaled = true
+            roleLabel.Font = Enum.Font.Gotham
+            roleLabel.Parent = card
+            local tpBtn = Instance.new("TextButton")
+            tpBtn.Size = UDim2.new(0, 45, 0, 25)
+            tpBtn.Position = UDim2.new(1, -105, 0, 12)
+            tpBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+            tpBtn.Text = "ТП"
+            tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            tpBtn.TextScaled = true
+            tpBtn.Font = Enum.Font.GothamBold
+            tpBtn.Parent = card
+            tpBtn.MouseButton1Click:Connect(function() TeleportToPlayer(plr) end)
+            local flingBtn = Instance.new("TextButton")
+            flingBtn.Size = UDim2.new(0, 55, 0, 25)
+            flingBtn.Position = UDim2.new(1, -55, 0, 12)
+            flingBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            flingBtn.Text = "FLING"
+            flingBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            flingBtn.TextScaled = true
+            flingBtn.Font = Enum.Font.GothamBold
+            flingBtn.Parent = card
+            flingBtn.MouseButton1Click:Connect(function() FlingPlayer(plr) end)
+            y = y + 60
+        end
+    end
+    list.CanvasSize = UDim2.new(0, 0, 0, y + 10)
+end
+
+CreateButton(ScrollingFrame, "👥 ИГРОКИ", 10, OpenPlayersMenu)
+CreateButton(ScrollingFrame, "💀 RESET", 55, function() if Player.Character then Player.Character:BreakJoints() end end)
+CreateButton(ScrollingFrame, "🔪 KILL ALL", 100, function() 
+    local knife = nil
+    if Player.Character then
+        for _, v in ipairs(Player.Character:GetChildren()) do 
+            if v:IsA("Tool") and v.Name:lower():find("knife") then 
+                knife = v 
+                break 
+            end 
+        end
+    end
+    if not knife and Player.Backpack then 
+        for _, v in ipairs(Player.Backpack:GetChildren()) do 
+            if v:IsA("Tool") and v.Name:lower():find("knife") then 
+                knife = v 
+                break 
+            end 
+        end 
+    end
+    if knife then
+        ExecuteKillAll(Player, knife)
+    else
+        print("❌ Нож не найден!")
+    end
+end)
+CreateButton(ScrollingFrame, "🔫 LOOT GUN", 140, lootGun)
+CreateToggle(ScrollingFrame, "👆 Touch Fling", 180, toggleTouchFling)
+CreateToggle(ScrollingFrame, "🎯 Aimbot 1 (Старый)", 220, toggleAimbot)
+CreateToggle(ScrollingFrame, "🎯 Aimbot 2 (Новый)", 260, toggleAimbot2)
+CreateToggle(ScrollingFrame, "🎯 Silent Aim", 300, function(v)
+    if v then print("🔇 Silent Aim включен!") else print("🔇 Silent Aim выключен!") end
+end)
+CreateToggle(ScrollingFrame, "🔫 TriggerBot", 340, function(v)
+    if v then print("🔫 TriggerBot включен!") else print("🔫 TriggerBot выключен!") end
+end)
+CreateToggle(ScrollingFrame, "👁️ ESP", 380, toggleESP)
+CreateToggle(ScrollingFrame, "⚡ Speed Glitch", 420, toggleSpeedGlitch)
+CreateSlider(ScrollingFrame, "Скорость", 455, 50, 300, speedValue, function(val) speedValue = val end)
+CreateToggle(ScrollingFrame, "🚫 No Clip", 500, toggleNoClip)
+CreateToggle(ScrollingFrame, "🏃 Wall Hop", 540, toggleWallHop)
+CreateSlider(ScrollingFrame, "Сила прыжка", 575, 20, 200, WallHopConfig.HopPower, function(val) WallHopConfig.HopPower = val end)
+CreateSlider(ScrollingFrame, "Дистанция", 615, 1, 10, WallHopConfig.ForwardCheck, function(val) WallHopConfig.ForwardCheck = val end)
+CreateSlider(ScrollingFrame, "Задержка", 655, 0.05, 1, WallHopConfig.RotationDelay, function(val) WallHopConfig.RotationDelay = val end)
+CreateToggle(ScrollingFrame, "Разворот", 695, function(v) WallHopConfig.RotationBounce = v end)
+CreateToggle(ScrollingFrame, "💦 Дрочка", 735, toggleHandjob)
+CreateToggle(ScrollingFrame, "🛡️ Anti-AFK", 775, toggleAntiAFK)
+CreateToggle(ScrollingFrame, "👤 Headless + Korblox", 815, toggleHeadlessKorblox)
+CreateButton(ScrollingFrame, "💣 Fake Bomb", 855, fakeBomb)
+CreateToggle(ScrollingFrame, "🛡️ Анти-флинг", 895, toggleAntiFling)
+
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 1050)
+
+print("=== MaxArt Hub ЗАГРУЖЕН ===")
+print("🎨 Переключитесь на вкладку ВИЗУАЛ для 30+ эффектов!")
+print("🛡️ Анти-флинг добавлен!")
