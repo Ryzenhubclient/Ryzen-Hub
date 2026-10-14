@@ -1,0 +1,596 @@
+-- ════════════════════════════════════════════════════════════════
+-- dima pidor — SNIPER ARENA EDITION v10 (INSTANT RESET)
+-- ════════════════════════════════════════════════════════════════
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local Settings = {
+    AimbotEnabled = false,
+    AimbotKey = Enum.KeyCode.E,
+    AimbotFOV = 120,
+    AimbotPart = "Head",
+    WallCheck = false,
+    Prediction = 0.15,
+    StickyTarget = true,
+
+    ESPEnabled = false,
+    ESPBoxes = true,
+    ESPNames = true,
+    ESPHealth = true,
+    ESPDistance = true,
+    ESPTracers = false,
+
+    ShowFOVCircle = true,
+    FOVCircleColor = Color3.fromRGB(255, 60, 60),
+    FOVCircleThickness = 1.5,
+
+    Noclip = false,
+    Fullbright = false,
+}
+
+local Connections = {}
+local DrawingObjects = {}
+
+local function AddConnection(conn)
+    table.insert(Connections, conn)
+    return conn
+end
+
+local function AddDrawing(obj)
+    table.insert(DrawingObjects, obj)
+    return obj
+end
+
+-- ═══ FOV CIRCLE ═══
+local FOVCircle = AddDrawing(Drawing.new("Circle"))
+FOVCircle.Visible = false
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 64
+FOVCircle.Radius = 120
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Color = Color3.fromRGB(255, 60, 60)
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+AddConnection(RunService.RenderStepped:Connect(function()
+    if not Camera then Camera = Workspace.CurrentCamera end
+    if Settings.ShowFOVCircle and Settings.AimbotEnabled then
+        FOVCircle.Visible = true
+        FOVCircle.Radius = Settings.AimbotFOV
+        FOVCircle.Thickness = Settings.FOVCircleThickness
+        FOVCircle.Color = Settings.FOVCircleColor
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    else
+        FOVCircle.Visible = false
+    end
+end))
+
+-- ═══ ESP ═══
+local ESPObjects = {}
+
+local function CreateESP(player)
+    if ESPObjects[player] then return end
+    if player == LocalPlayer then return end
+
+    local box = AddDrawing(Drawing.new("Square"))
+    box.Visible = false
+    box.Thickness = 1.5
+    box.Color = Color3.fromRGB(255, 60, 60)
+    box.Filled = false
+    box.Transparency = 1
+
+    local nameTag = AddDrawing(Drawing.new("Text"))
+    nameTag.Visible = false
+    nameTag.Center = true
+    nameTag.Outline = true
+    nameTag.OutlineColor = Color3.fromRGB(0, 0, 0)
+    nameTag.Color = Color3.fromRGB(255, 255, 255)
+    nameTag.Size = 14
+    nameTag.Font = 2
+
+    local healthBar = AddDrawing(Drawing.new("Line"))
+    healthBar.Visible = false
+    healthBar.Thickness = 2
+    healthBar.Color = Color3.fromRGB(0, 255, 0)
+
+    local distanceTag = AddDrawing(Drawing.new("Text"))
+    distanceTag.Visible = false
+    distanceTag.Center = true
+    distanceTag.Outline = true
+    distanceTag.OutlineColor = Color3.fromRGB(0, 0, 0)
+    distanceTag.Color = Color3.fromRGB(200, 200, 200)
+    distanceTag.Size = 12
+    distanceTag.Font = 2
+
+    local tracer = AddDrawing(Drawing.new("Line"))
+    tracer.Visible = false
+    tracer.Thickness = 1
+    tracer.Color = Color3.fromRGB(255, 60, 60)
+    tracer.Transparency = 1
+
+    ESPObjects[player] = {
+        box = box, nameTag = nameTag, healthBar = healthBar,
+        distanceTag = distanceTag, tracer = tracer,
+    }
+end
+
+local function RemoveESP(player)
+    local esp = ESPObjects[player]
+    if not esp then return end
+    for _, obj in pairs(esp) do
+        pcall(function() obj:Remove() end)
+    end
+    ESPObjects[player] = nil
+end
+
+for _, player in ipairs(Players:GetPlayers()) do CreateESP(player) end
+
+AddConnection(Players.PlayerAdded:Connect(function(player)
+    CreateESP(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        if Settings.ESPEnabled then CreateESP(player) end
+    end)
+end))
+
+AddConnection(Players.PlayerRemoving:Connect(function(player) RemoveESP(player) end))
+
+AddConnection(RunService.RenderStepped:Connect(function()
+    if not Settings.ESPEnabled then
+        for _, esp in pairs(ESPObjects) do
+            for _, obj in pairs(esp) do
+                if obj.Visible ~= nil then obj.Visible = false end
+            end
+        end
+        return
+    end
+
+    for player, esp in pairs(ESPObjects) do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+
+        if not char or not hrp or not humanoid or humanoid.Health <= 0 then
+            for _, obj in pairs(esp) do
+                if obj.Visible ~= nil then obj.Visible = false end
+            end
+            continue
+        end
+
+        local rootPos = hrp.Position
+        local screenPos, onScreen = Camera:WorldToViewportPoint(rootPos)
+
+        if not onScreen then
+            for _, obj in pairs(esp) do
+                if obj.Visible ~= nil then obj.Visible = false end
+            end
+            continue
+        end
+
+        local distance = (Camera.CFrame.Position - rootPos).Magnitude
+        local headPos = char:FindFirstChild("Head")
+        local topPos = headPos and Camera:WorldToViewportPoint(headPos.Position + Vector3.new(0, 0.5, 0))
+        local bottomPos = Camera:WorldToViewportPoint(rootPos - Vector3.new(0, 3, 0))
+
+        if Settings.ESPBoxes and topPos and bottomPos then
+            local height = math.abs(bottomPos.Y - topPos.Y)
+            local width = height * 0.65
+            esp.box.Size = Vector2.new(width, height)
+            esp.box.Position = Vector2.new(screenPos.X - width / 2, topPos.Y)
+            esp.box.Visible = true
+        else
+            esp.box.Visible = false
+        end
+
+        if Settings.ESPNames then
+            esp.nameTag.Text = player.Name
+            esp.nameTag.Position = Vector2.new(screenPos.X, topPos.Y - 18)
+            esp.nameTag.Visible = true
+        else
+            esp.nameTag.Visible = false
+        end
+
+        if Settings.ESPHealth and topPos and bottomPos then
+            local healthPct = humanoid.Health / humanoid.MaxHealth
+            local barHeight = math.abs(bottomPos.Y - topPos.Y) * healthPct
+            local barY = bottomPos.Y - barHeight
+            esp.healthBar.From = Vector2.new(topPos.X - (math.abs(bottomPos.Y - topPos.Y) * 0.65 / 2) - 5, barY)
+            esp.healthBar.To = Vector2.new(topPos.X - (math.abs(bottomPos.Y - topPos.Y) * 0.65 / 2) - 5, bottomPos.Y)
+            esp.healthBar.Color = Color3.fromRGB(255 * (1 - healthPct), 255 * healthPct, 0)
+            esp.healthBar.Visible = true
+        else
+            esp.healthBar.Visible = false
+        end
+
+        if Settings.ESPDistance then
+            esp.distanceTag.Text = math.floor(distance) .. "m"
+            esp.distanceTag.Position = Vector2.new(screenPos.X, bottomPos.Y + 4)
+            esp.distanceTag.Visible = true
+        else
+            esp.distanceTag.Visible = false
+        end
+
+        if Settings.ESPTracers then
+            esp.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            esp.tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+            esp.tracer.Visible = true
+        else
+            esp.tracer.Visible = false
+        end
+    end
+end))
+
+-- ═══ NOCLIP ═══
+AddConnection(RunService.Stepped:Connect(function()
+    if Settings.Noclip and LocalPlayer.Character then
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end))
+
+-- ═══ AIMBOT v10 — INSTANT RESET ═══
+local aimbotHeld = false
+local currentTarget = nil
+
+AddConnection(UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Settings.AimbotKey then
+        aimbotHeld = true
+    end
+end))
+
+AddConnection(UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Settings.AimbotKey then
+        aimbotHeld = false
+        currentTarget = nil
+    end
+end))
+
+local function GetTargetPart(char)
+    if not char then return nil end
+    local part = char:FindFirstChild(Settings.AimbotPart)
+    if part and part:IsA("BasePart") then return part end
+
+    if Settings.AimbotPart == "UpperTorso" then
+        return char:FindFirstChild("Torso") or char:FindFirstChild("HumanoidRootPart")
+    elseif Settings.AimbotPart == "Head" then
+        return char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+    elseif Settings.AimbotPart == "HumanoidRootPart" then
+        return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+    end
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+local function IsTargetValid(targetPart, screenCenter)
+    if not targetPart or not targetPart.Parent then return false end
+    local char = targetPart.Parent
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid or humanoid.Health <= 0 then return false end
+    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+    if not onScreen then return false end
+    local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+    if dist > Settings.AimbotFOV * 1.5 then return false end
+    return true
+end
+
+local function FindClosestTarget()
+    local closest = nil
+    local closestDist = Settings.AimbotFOV
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        if not char or not hrp or not humanoid or humanoid.Health <= 0 then continue end
+
+        local targetPart = GetTargetPart(char)
+        if not targetPart then continue end
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
+        if not onScreen then continue end
+
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+        if dist < closestDist then
+            if Settings.WallCheck then
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+                local result = Workspace:Raycast(Camera.CFrame.Position, (targetPart.Position - Camera.CFrame.Position).Unit * 1000, rayParams)
+                if result and not result.Instance:IsDescendantOf(char) then
+                    continue
+                end
+            end
+            closestDist = dist
+            closest = targetPart
+        end
+    end
+    return closest
+end
+
+-- Сохраняем точку, куда должен смотреть прицел (позиция камеры + цель)
+local function ApplyAimbot()
+    if not Settings.AimbotEnabled then return end
+    if not aimbotHeld then return end
+    if not Camera then Camera = Workspace.CurrentCamera end
+    if not Camera then return end
+
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    if Settings.StickyTarget and currentTarget and IsTargetValid(currentTarget, screenCenter) then
+        -- остаёмся
+    else
+        currentTarget = FindClosestTarget()
+    end
+
+    if not currentTarget or not currentTarget.Parent then
+        currentTarget = nil
+        return
+    end
+
+    local targetPos = currentTarget.Position
+
+    if Settings.Prediction > 0 then
+        local hrp = currentTarget.Parent:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local vel = hrp.AssemblyLinearVelocity
+            local predVec = Vector3.new(
+                vel.X * Settings.Prediction,
+                math.clamp(vel.Y * Settings.Prediction, -5, 5),
+                vel.Z * Settings.Prediction
+            )
+            targetPos = targetPos + predVec
+        end
+    end
+
+    if targetPos.X ~= targetPos.X or targetPos.Y ~= targetPos.Y or targetPos.Z ~= targetPos.Z then
+        return
+    end
+
+    -- Жёстко ставим камеру на цель
+    Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
+end
+
+-- ═══ МАКСИМАЛЬНЫЙ ПРИОРИТЕТ + все события ═══
+
+-- 1) BindToRenderStep приоритет 9999 (максимум)
+pcall(function()
+    RunService:BindToRenderStep("DimaAimbot_v10", 9999, ApplyAimbot)
+end)
+
+-- 2) Heartbeat
+AddConnection(RunService.Heartbeat:Connect(ApplyAimbot))
+
+-- 3) Stepped
+AddConnection(RunService.Stepped:Connect(ApplyAimbot))
+
+-- 4) RenderStepped
+AddConnection(RunService.RenderStepped:Connect(ApplyAimbot))
+
+-- 5) КЛЮЧЕВОЕ — InputChanged MouseMovement: перебиваем СРАЗУ после движения мыши
+AddConnection(UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        if aimbotHeld and Settings.AimbotEnabled then
+            ApplyAimbot()
+        end
+    end
+end))
+
+-- 6) Также InputBegan для мыши — на случай каких-то внутренних движений
+AddConnection(UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        if aimbotHeld and Settings.AimbotEnabled then
+            ApplyAimbot()
+        end
+    end
+end))
+
+-- ═══ FULL DESTROY ═══
+local function FullDestroy()
+    for _, conn in ipairs(Connections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    Connections = {}
+
+    for _, obj in ipairs(DrawingObjects) do
+        pcall(function() obj:Remove() end)
+    end
+    DrawingObjects = {}
+
+    for player, esp in pairs(ESPObjects) do
+        for _, obj in pairs(esp) do
+            pcall(function() obj:Remove() end)
+        end
+    end
+    ESPObjects = {}
+
+    if LocalPlayer.Character then
+        for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+
+    pcall(function()
+        Lighting.Ambient = Color3.fromRGB(70, 70, 70)
+        Lighting.OutdoorAmbient = Color3.fromRGB(70, 70, 70)
+        Lighting.Brightness = 1
+    end)
+
+    Settings.AimbotEnabled = false
+    Settings.ESPEnabled = false
+    Settings.Noclip = false
+    Settings.Fullbright = false
+    Settings.ShowFOVCircle = false
+    currentTarget = nil
+
+    pcall(function() RunService:UnbindFromRenderStep("DimaAimbot_v10") end)
+    pcall(function() FOVCircle.Visible = false end)
+    pcall(function() Rayfield:Destroy() end)
+
+    print("[dima pidor] Script FULLY DESTROYED.")
+end
+
+-- ═══ RAYFIELD UI ═══
+local Window = Rayfield:CreateWindow({
+    Name = "dima pidor | Sniper Arena",
+    Icon = 0,
+    LoadingTitle = "dima pidor",
+    LoadingSubtitle = "Sniper Arena v10",
+    Theme = "Default",
+    DisableRayfieldPrompts = true,
+    DisableBuildWarnings = true,
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = "dimaPidorSniperArena"
+    },
+    KeySystem = false,
+})
+
+local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
+AimbotTab:CreateSection("Основные")
+
+AimbotTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotEnabled",
+    Callback = function(value)
+        Settings.AimbotEnabled = value
+        if not value then currentTarget = nil end
+    end,
+})
+
+AimbotTab:CreateKeybind({
+    Name = "Aimbot Key (Hold)",
+    CurrentKeybind = "E",
+    HoldToInteract = false,
+    Flag = "AimbotKey",
+    Callback = function(key)
+        local success, keyCode = pcall(function() return Enum.KeyCode[key] end)
+        if success and keyCode then Settings.AimbotKey = keyCode end
+    end,
+})
+
+AimbotTab:CreateSlider({
+    Name = "FOV (Radius)",
+    Range = {10, 500},
+    Increment = 5,
+    Suffix = "px",
+    CurrentValue = 120,
+    Flag = "AimbotFOV",
+    Callback = function(value)
+        Settings.AimbotFOV = value
+        FOVCircle.Radius = value
+    end,
+})
+
+AimbotTab:CreateSection("Target")
+
+AimbotTab:CreateDropdown({
+    Name = "Target Part",
+    Options = {"Head", "HumanoidRootPart", "UpperTorso"},
+    CurrentOption = "Head",
+    Flag = "AimbotPart",
+    Callback = function(option)
+        if type(option) == "table" then
+            option = option[1] or option[#option]
+        end
+        option = tostring(option):gsub("%s+", "")
+        if option == "Head" or option == "HumanoidRootPart" or option == "UpperTorso" then
+            Settings.AimbotPart = option
+            currentTarget = nil
+        end
+    end,
+})
+
+AimbotTab:CreateToggle({
+    Name = "Sticky Target",
+    CurrentValue = true,
+    Flag = "StickyTarget",
+    Callback = function(value) Settings.StickyTarget = value end,
+})
+
+AimbotTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = false,
+    Flag = "WallCheck",
+    Callback = function(value) Settings.WallCheck = value end,
+})
+
+AimbotTab:CreateSlider({
+    Name = "Prediction",
+    Range = {0, 50},
+    Increment = 1,
+    Suffix = "%",
+    CurrentValue = 15,
+    Flag = "Prediction",
+    Callback = function(value) Settings.Prediction = value / 100 end,
+})
+
+local FOVTab = Window:CreateTab("FOV Circle", 4483362458)
+FOVTab:CreateToggle({Name = "Show FOV Circle", CurrentValue = true, Flag = "ShowFOVCircle", Callback = function(v) Settings.ShowFOVCircle = v end})
+FOVTab:CreateColorPicker({Name = "Circle Color", Color = Color3.fromRGB(255, 60, 60), Flag = "FOVCircleColor", Callback = function(c) Settings.FOVCircleColor = c end})
+FOVTab:CreateSlider({Name = "Thickness", Range = {1, 10}, Increment = 1, Suffix = "px", CurrentValue = 2, Flag = "FOVCircleThickness", Callback = function(v) Settings.FOVCircleThickness = v end})
+
+local ESPTab = Window:CreateTab("ESP", 4483362458)
+ESPTab:CreateToggle({Name = "Enable ESP", CurrentValue = false, Flag = "ESPEnabled", Callback = function(v) Settings.ESPEnabled = v end})
+ESPTab:CreateSection("Visuals")
+ESPTab:CreateToggle({Name = "Boxes", CurrentValue = true, Flag = "ESPBoxes", Callback = function(v) Settings.ESPBoxes = v end})
+ESPTab:CreateToggle({Name = "Names", CurrentValue = true, Flag = "ESPNames", Callback = function(v) Settings.ESPNames = v end})
+ESPTab:CreateToggle({Name = "Health Bars", CurrentValue = true, Flag = "ESPHealth", Callback = function(v) Settings.ESPHealth = v end})
+ESPTab:CreateToggle({Name = "Distance", CurrentValue = true, Flag = "ESPDistance", Callback = function(v) Settings.ESPDistance = v end})
+ESPTab:CreateToggle({Name = "Tracers", CurrentValue = false, Flag = "ESPTracers", Callback = function(v) Settings.ESPTracers = v end})
+
+local MiscTab = Window:CreateTab("Misc", 4483362458)
+MiscTab:CreateSection("Movement")
+MiscTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "Noclip",
+    Callback = function(value)
+        Settings.Noclip = value
+        if not value and LocalPlayer.Character then
+            for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
+    end,
+})
+
+MiscTab:CreateSection("Visuals")
+MiscTab:CreateToggle({
+    Name = "Fullbright",
+    CurrentValue = false,
+    Flag = "Fullbright",
+    Callback = function(value)
+        Settings.Fullbright = value
+        Lighting.Ambient = value and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(70, 70, 70)
+        Lighting.OutdoorAmbient = value and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(70, 70, 70)
+        Lighting.Brightness = value and 2 or 1
+    end,
+})
+
+MiscTab:CreateSection("Danger Zone")
+MiscTab:CreateButton({Name = "💀 FULL DESTROY SCRIPT 💀", Callback = function() FullDestroy() end})
+MiscTab:CreateButton({Name = "Unload UI Only (Rayfield)", Callback = function() pcall(function() Rayfield:Destroy() end) end})
+
+Rayfield:Notify({
+    Title = "dima pidor",
+    Content = "Sniper Arena v10 loaded! Instant Reset Aimbot.",
+    Duration = 3,
+    Image = 4483362458,
+})
+
+print("[dima pidor] Sniper Arena v10 loaded.")
