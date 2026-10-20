@@ -1,5 +1,5 @@
 --[[
-    Nursultan Client — full build (v3)
+    Nursultan Client - full build (v3.1)
 
     Вкладки: Profile • Combat • Movement • Visuals • Animations • Auras • Misc
     RightShift — показать/скрыть окно. J — скрыть/показать HUD.
@@ -8,11 +8,12 @@
     v1 — базовая сборка.
     v2 — растяг хитбоксов.
     v3 — растяг экрана в Combat с ползунком силы.
+    v3.1 — растяг экрана совместим с разными играми и исполнителями.
 
     Собрано по мотивам bebracka client, интерфейс — Nursultan.
 ]]
 
-local SCRIPT_VERSION = "v3"
+local SCRIPT_VERSION = "v3.1"
 
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -1722,22 +1723,82 @@ end)
 -- SCREEN STRETCH
 -- =============================================================================
 local SCREEN_STRETCH_BIND = "NursultanScreenStretch"
+local SCREEN_STRETCH_LATE_BIND = "NursultanScreenStretchLate"
+local lastAppliedStretch = nil
+local cameraHook = nil
+local cameraChangedConn = nil
+local hookedCamera = nil
+local applyingStretch = false
 
-pcall(function()
-    RunService:UnbindFromRenderStep(SCREEN_STRETCH_BIND)
-end)
+local function stretchCamera(camera)
+    local power = math.clamp(S.screenStretchPower or 1, 1, 2)
+    if power <= 1.001 then return end
 
-RunService:BindToRenderStep(SCREEN_STRETCH_BIND, Enum.RenderPriority.Camera.Value + 1, function()
+    local cf = camera.CFrame
+    local stretched = CFrame.fromMatrix(cf.Position, cf.XVector, cf.YVector / power, cf.ZVector)
+    applyingStretch = true
+    camera.CFrame = stretched
+    applyingStretch = false
+    lastAppliedStretch = stretched
+end
+
+local function applyScreenStretch()
     if not S.screenStretch then return end
 
     local camera = Workspace.CurrentCamera
     if not camera then return end
 
-    local power = math.clamp(S.screenStretchPower or 1, 1, 2)
-    if power <= 1.001 then return end
+    stretchCamera(camera)
+end
 
-    local cf = camera.CFrame
-    camera.CFrame = CFrame.fromMatrix(cf.Position, cf.XVector, cf.YVector / power, cf.ZVector)
+local function hookCamera()
+    local camera = Workspace.CurrentCamera
+    if hookedCamera == camera then return end
+
+    if cameraHook then
+        cameraHook:Disconnect()
+        cameraHook = nil
+    end
+
+    hookedCamera = camera
+    if camera then
+        -- bypass for games (like Sniper Arena) that rewrite Camera.CFrame every frame
+        cameraHook = camera:GetPropertyChangedSignal("CFrame"):Connect(function()
+            if applyingStretch or not S.screenStretch then return end
+            if not hookedCamera or hookedCamera ~= Workspace.CurrentCamera then return end
+            if lastAppliedStretch and hookedCamera.CFrame == lastAppliedStretch then return end
+            stretchCamera(hookedCamera)
+        end)
+    end
+end
+
+hookCamera()
+cameraChangedConn = Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(hookCamera)
+
+pcall(function()
+    RunService:UnbindFromRenderStep(SCREEN_STRETCH_BIND)
+    RunService:UnbindFromRenderStep(SCREEN_STRETCH_LATE_BIND)
+end)
+
+-- main pass: right after the default camera updates
+local bound = pcall(function()
+    RunService:BindToRenderStep(SCREEN_STRETCH_BIND, Enum.RenderPriority.Camera.Value + 1, applyScreenStretch)
+end)
+
+-- fallback for executors that don't support BindToRenderStep
+if not bound then
+    RunService.RenderStepped:Connect(applyScreenStretch)
+end
+
+-- late pass: re-apply in case a game camera script overwrote our frame
+pcall(function()
+    RunService:BindToRenderStep(SCREEN_STRETCH_LATE_BIND, Enum.RenderPriority.Last.Value, function()
+        if not S.screenStretch then return end
+        local camera = Workspace.CurrentCamera
+        if not camera then return end
+        if lastAppliedStretch and camera.CFrame == lastAppliedStretch then return end
+        stretchCamera(camera)
+    end)
 end)
 
 -- =============================================================================
@@ -6398,6 +6459,12 @@ function _G.NursultanUnload()
     pcall(function() stopEmotes() end)
     pcall(function() restoreHitboxes() end)
     pcall(function() RunService:UnbindFromRenderStep("NursultanScreenStretch") end)
+    pcall(function() RunService:UnbindFromRenderStep("NursultanScreenStretchLate") end)
+    pcall(function()
+        S.screenStretch = false
+        if cameraHook then cameraHook:Disconnect() end
+        if cameraChangedConn then cameraChangedConn:Disconnect() end
+    end)
 
     if targetEspGui then
         pcall(function() targetEspGui:Destroy() end)
