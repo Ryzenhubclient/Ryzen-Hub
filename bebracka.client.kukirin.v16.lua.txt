@@ -1,0 +1,1910 @@
+--[[ BEBRACKA CLIENT — Speed / Fly / Jump / Spin / Auto-Spin / Wheelie ]]
+-- v15: убраны tint/fov/smoke/selfRainbow/aura. RTX от Nursultan. Ватермарка.
+-- Фон: впиши BG_ASSET_ID ниже, если нужна картинка.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Stats = game:GetService("Stats")
+local LocalPlayer = Players.LocalPlayer
+
+local ENV = _G
+pcall(function() if type(getgenv) == "function" then ENV = getgenv() end end)
+
+local INSTANCE = {}
+pcall(function()
+	if _G.__kukirinCleanup then _G.__kukirinCleanup() end
+	if _G.__bebrackaCleanup then _G.__bebrackaCleanup() end
+	if ENV.__bebrackaCleanup then ENV.__bebrackaCleanup() end
+end)
+ENV.__bebrackaInstance = INSTANCE
+
+local conns = {}
+local function connect(signal, fn)
+	local c
+	c = signal:Connect(function(...)
+		if ENV.__bebrackaInstance ~= INSTANCE then
+			if c then c:Disconnect() end
+			return
+		end
+		return fn(...)
+	end)
+	table.insert(conns, c)
+	return c
+end
+
+local CONFIG = {
+	speed = 180, speedRampTime = 7, speedBrake = 120,
+	jumpPower = 30, jumpHold = 0.12, spinSpeed = 35,
+	flySpeed = 100, antiFall = false, gearMode = "auto", spinInterval = 2,
+}
+
+local speedOn, flyOn, flyUp, flyDown = false, false, false, false
+local spinning, autoSpinOn, autoSpinRunning = false, false, false
+local autoWheelieOn, autoWheelieRunning = false, false
+local speedRampCurrent, speedRampPart, speedRampActive = 0, nil, false
+local speedRampStart, speedRampT, speedRampTarget = 0, 0, 0
+local scriptWDown = false
+local gui, updateUI = nil, nil
+local currentLang = "ru"
+
+local L = {
+	ru = {
+		title = "BEBRACKA CLIENT", subtitle = "Speed • Fly • Spin • Wheelie",
+		tabMain = "Управление", tabKeys = "Клавиши", tabVis = "Визуалы",
+		secShader = "ШЕЙДЕР И КАМЕРА", tgRTX = "RTX шейдер",
+		tgClock = "Своё время суток", sliderClock = "Время суток (час)",
+		tgBlur = "Размытие от скорости", tgChrome = "Хром", tgGlass = "Стекло",
+		tgFire = "Огонь", secPlayers = "ИГРОКИ", tgEsp = "Подсветка игроков",
+		tgNames = "Имена и дистанция", secGear = "ПЕРЕДАЧА (ECO / SPORT / RACE)",
+		gearAuto = "АВТО", gearWord = "Передача", srcManual = "вручную",
+		srcAuto = "определена", srcDefault = "не найдена → RACE",
+		tgAntiFall = "Анти-падение", secVisual = "САМОКАТ", secColor = "ЦВЕТ ЭФФЕКТОВ",
+		tgRainbow = "Радужный самокат", tgNeon = "Неон", tgTrail = "Шлейф",
+		tgLight = "Подсветка снизу", tgSpark = "Искры",
+		sliderRainbow = "Скорость радуги", sliderGhost = "Прозрачность самоката, %",
+		visHint = "Эффекты видишь только ты. Шейдер и камера работают везде, эффекты самоката — когда сидишь на нём. Цвет влияет на неон, шлейф, подсветку, огонь и подсветку игроков.",
+		secMove = "ДВИЖЕНИЕ", secFly = "ПОЛЁТ", secTricks = "ТРЮКИ",
+		secSettings = "НАСТРОЙКИ", tgSpeed = "SPEED", tgFly = "ПОЛЁТ",
+		tgAutoSpin = "АВТО-КРУТКА", tgWheelie = "ВИЛЛИ",
+		stateOn = "включено", stateOff = "выключено",
+		flyUp = "▲ ВВЕРХ", flyDown = "▼ ВНИЗ", sliderFly = "Скорость полёта",
+		keyFly = "Полёт", jump = "ПРЫЖОК С САМОКАТОМ",
+		spin = "КРУТКА + ПРЫЖОК", spinActive = "КРУТКА...",
+		sliderSpeed = "Макс. скорость (RACE)", sliderRamp = "Плавность разгона (сек)",
+		sliderJump = "Сила прыжка", sliderSpin = "Скорость крутки",
+		speedNow = "Текущая скорость",
+		hint = "Speed работает, пока зажата W. Крутка идёт на месте, где ты её начал.\nПолёт: W/A/S/D по камере, Space — вверх, Shift — вниз.",
+		keysTip = "Нажми на кнопку, потом на нужную клавишу.\nBackspace — очистить, Esc — отмена.",
+		pressKey = "жми клавишу...", keyJump = "Прыжок", keySpin = "Крутка",
+		keyAutoSpin = "Авто-крутка", keyWheelie = "Вилли", keySpeed = "Speed",
+	},
+	en = {
+		title = "BEBRACKA CLIENT", subtitle = "Speed • Fly • Spin • Wheelie",
+		tabMain = "Controls", tabKeys = "Keybinds", tabVis = "Visuals",
+		secShader = "SHADER & CAMERA", tgRTX = "RTX shader",
+		tgClock = "Custom time of day", sliderClock = "Time of day (hour)",
+		tgBlur = "Speed blur", tgChrome = "Chrome", tgGlass = "Glass",
+		tgFire = "Fire", secPlayers = "PLAYERS", tgEsp = "Player highlight",
+		tgNames = "Names & distance", secGear = "GEAR (ECO / SPORT / RACE)",
+		gearAuto = "AUTO", gearWord = "Gear", srcManual = "manual",
+		srcAuto = "detected", srcDefault = "not found → RACE",
+		tgAntiFall = "Anti-fall", secVisual = "SCOOTER", secColor = "EFFECT COLOR",
+		tgRainbow = "Rainbow scooter", tgNeon = "Neon", tgTrail = "Trail",
+		tgLight = "Underglow", tgSpark = "Sparkles",
+		sliderRainbow = "Rainbow speed", sliderGhost = "Scooter transparency, %",
+		visHint = "Only you see the effects. Shader and camera work everywhere, scooter effects work while you sit on it. The color affects neon, trail, underglow, fire and player highlight.",
+		secMove = "MOVEMENT", secFly = "FLIGHT", secTricks = "TRICKS",
+		secSettings = "SETTINGS", tgSpeed = "SPEED", tgFly = "FLY",
+		tgAutoSpin = "AUTO-SPIN", tgWheelie = "WHEELIE",
+		stateOn = "enabled", stateOff = "disabled",
+		flyUp = "▲ UP", flyDown = "▼ DOWN", sliderFly = "Fly Speed",
+		keyFly = "Fly", jump = "JUMP WITH SCOOTER",
+		spin = "SPIN + JUMP", spinActive = "SPINNING...",
+		sliderSpeed = "Max speed (RACE)", sliderRamp = "Acceleration time (sec)",
+		sliderJump = "Jump Power", sliderSpin = "Spin Speed",
+		speedNow = "Current speed",
+		hint = "Speed works while W is held. The spin stays where you started it.\nFly: W/A/S/D follow the camera, Space — up, Shift — down.",
+		keysTip = "Click a button, then press the key you want.\nBackspace — clear, Esc — cancel.",
+		pressKey = "press a key...", keyJump = "Jump", keySpin = "Spin",
+		keyAutoSpin = "Auto-Spin", keyWheelie = "Wheelie", keySpeed = "Speed",
+	},
+}
+
+local function t(key)
+	return (L[currentLang] and L[currentLang][key]) or L.ru[key] or key
+end
+
+local function getRide()
+	local char = LocalPlayer.Character
+	if not char then return nil, nil end
+	local hum = char:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	if seat then return seat, seat.AssemblyRootPart or seat end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		for _, obj in ipairs(hrp:GetChildren()) do
+			if obj:IsA("Weld") or obj:IsA("WeldConstraint") or obj:IsA("Motor6D") then
+				local other = nil
+				if obj.Part0 == hrp then other = obj.Part1
+				elseif obj.Part1 == hrp then other = obj.Part0 end
+				if other and not other:IsDescendantOf(char) then
+					return nil, other.AssemblyRootPart or other
+				end
+			end
+		end
+	end
+	local tool = char:FindFirstChildOfClass("Tool")
+	local handle = tool and tool:FindFirstChild("Handle")
+	if handle then return nil, handle.AssemblyRootPart or handle end
+	if hrp then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { char }
+		local hit = workspace:Raycast(hrp.Position, Vector3.new(0, -12, 0), params)
+		if hit and hit.Instance and hit.Instance:IsA("BasePart") then
+			local hitPart = hit.Instance
+			local model = hitPart:FindFirstAncestorOfClass("Model")
+			local root = hitPart.AssemblyRootPart or hitPart
+			local isVehicle = (not hitPart.Anchored) or (not root.Anchored)
+			if isVehicle and model and model ~= workspace and model ~= char then
+				local seatPart = model:FindFirstChildOfClass("VehicleSeat") or model:FindFirstChildOfClass("Seat")
+				if seatPart then return seatPart, seatPart.AssemblyRootPart or seatPart end
+				return nil, root
+			end
+		end
+	end
+	return nil, hrp
+end
+
+local function hasSpeedInput(seat)
+	local okF, f = pcall(function() return UserInputService:GetFocusedTextBox() end)
+	if okF and f then return false end
+	if scriptWDown then return true end
+	local okW, w = pcall(function() return UserInputService:IsKeyDown(Enum.KeyCode.W) end)
+	if okW and w then return true end
+	local okU, u = pcall(function() return UserInputService:IsKeyDown(Enum.KeyCode.Up) end)
+	if okU and u then return true end
+	if seat and seat:IsA("VehicleSeat") then
+		local okT, th = pcall(function() return seat.Throttle end)
+		if okT and type(th) == "number" and th > 0.05 then return true end
+	end
+	return false
+end
+
+local GEAR_FACTOR = { eco = 1/3, sport = 2/3, race = 1 }
+local NUM_GEAR = { [1] = "eco", [2] = "sport", [3] = "race" }
+local detectedGear, detectedSource, gearScanClock = nil, nil, 0
+
+local function gearSpeed(g)
+	return math.floor(CONFIG.speed * (GEAR_FACTOR[g] or 1) + 0.5)
+end
+
+local function matchGear(v)
+	if type(v) ~= "string" then return nil end
+	local low = v:lower()
+	if low:find("%f[%a]eco%f[%A]") then return "eco" end
+	if low:find("%f[%a]sports?%f[%A]") then return "sport" end
+	if low:find("%f[%a]rac[ei]n?g?%f[%A]") then return "race" end
+	return nil
+end
+
+local function gearFromValue(name, v)
+	local lname = tostring(name):lower()
+	local nameOk = lname:find("mode") or lname:find("gear") or lname:find("speed") or lname:find("drive") or lname:find("profile")
+	if type(v) == "string" then
+		local trimmed = v:lower():gsub("%s+", "")
+		if trimmed == "eco" or trimmed == "sport" or trimmed == "sports" or trimmed == "race" or trimmed == "racing" then
+			return matchGear(trimmed)
+		end
+		if nameOk then return matchGear(v) end
+	elseif type(v) == "number" then
+		if (lname:find("gear") or lname:find("mode")) and NUM_GEAR[v] then return NUM_GEAR[v] end
+	end
+	return nil
+end
+
+local function scanContainer(inst, deep)
+	if not inst then return nil end
+	local ok, attrs = pcall(function() return inst:GetAttributes() end)
+	if ok and attrs then
+		for name, val in pairs(attrs) do
+			local g = gearFromValue(name, val)
+			if g then return g, inst.Name .. "@" .. name end
+		end
+	end
+	local list = deep and inst:GetDescendants() or inst:GetChildren()
+	for i = 1, math.min(#list, 800) do
+		local d = list[i]
+		if d:IsA("StringValue") or d:IsA("IntValue") or d:IsA("NumberValue") then
+			local g = gearFromValue(d.Name, d.Value)
+			if g then return g, d:GetFullName() end
+		end
+	end
+	return nil
+end
+
+local function detectGear()
+	local seat, part = getRide()
+	local ref = seat or part
+	local model = ref and ref:FindFirstAncestorOfClass("Model")
+	local places = {
+		{ seat, false }, { part, false }, { model, true },
+		{ LocalPlayer, false }, { LocalPlayer.Character, false },
+	}
+	for _, e in ipairs(places) do
+		local g, src = scanContainer(e[1], e[2])
+		if g then return g, src end
+	end
+	return nil
+end
+
+local function currentGear()
+	if CONFIG.gearMode ~= "auto" then return CONFIG.gearMode, "manual" end
+	local now = os.clock()
+	if now - gearScanClock > 0.5 then
+		gearScanClock = now
+		local g, src = nil, nil
+		pcall(function() g, src = detectGear() end)
+		if g ~= detectedGear then
+			print("[bebracka client] gear: " .. tostring(g) .. " (" .. tostring(src) .. ")")
+		end
+		detectedGear, detectedSource = g, src
+	end
+	if detectedGear then return detectedGear, "auto" end
+	return "race", "default"
+end
+
+local function groundNormal(seat, part)
+	local char = LocalPlayer.Character
+	local ref = seat or part
+	local model = ref:FindFirstAncestorOfClass("Model")
+	local ignore = { char }
+	if model and model ~= char then table.insert(ignore, model)
+	else table.insert(ignore, part) end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignore
+	local hit = workspace:Raycast(part.Position + Vector3.new(0, 1, 0), Vector3.new(0, -8, 0), params)
+	if hit and hit.Normal.Y > 0.5 then return hit.Normal end
+	return nil
+end
+
+local guardChar, guardOn = nil, false
+
+local function guardHumanoid(char, on)
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+	pcall(function()
+		hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, not on)
+		hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, not on)
+	end)
+end
+
+local function syncGuard()
+	local char = LocalPlayer.Character
+	if char ~= guardChar then guardChar = char; guardOn = false end
+	if CONFIG.antiFall ~= guardOn then
+		guardOn = CONFIG.antiFall
+		guardHumanoid(char, guardOn)
+	end
+end
+
+local function antiFallStep()
+	if not CONFIG.antiFall or flyOn or spinning or autoWheelieOn then return end
+	local seat, part = getRide()
+	if not part or not part.Parent then return end
+	local char = LocalPlayer.Character
+	if char and part:IsDescendantOf(char) then return end
+	local n = groundNormal(seat, part) or Vector3.new(0, 1, 0)
+	local ref = seat or part
+	local u = ref.CFrame.UpVector
+	local ang = math.acos(math.clamp(u:Dot(n), -1, 1))
+	if ang > math.rad(1.5) then
+		local axis = u:Cross(n)
+		if axis.Magnitude > 1e-4 then
+			local step = math.min(ang, math.max(ang * 0.6, math.rad(2)))
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			local pivot = hrp and hrp.Position or part.Position
+			part.CFrame = CFrame.new(pivot) * CFrame.fromAxisAngle(axis.Unit, step) * CFrame.new(-pivot) * part.CFrame
+		end
+	end
+	local av = part.AssemblyAngularVelocity
+	part.AssemblyAngularVelocity = n * av:Dot(n)
+end
+
+local function applySpeed(dt)
+	if flyOn then speedRampActive = false; speedRampPart = nil; return end
+	local seat, part = getRide()
+	if not part or not part.Parent then speedRampActive = false; speedRampPart = nil; return end
+	if not hasSpeedInput(seat) then speedRampActive = false; speedRampPart = nil; return end
+	local look = (seat or part).CFrame.LookVector
+	local dir = Vector3.new(look.X, 0, look.Z)
+	if dir.Magnitude < 0.01 then speedRampActive = false; speedRampPart = nil; return end
+	dir = dir.Unit
+	local v = part.AssemblyLinearVelocity
+	local normal = nil
+	if CONFIG.antiFall then
+		normal = groundNormal(seat, part)
+		if not normal and math.abs(v.Y) > 8 then return end
+	end
+	local dir3 = dir
+	if normal then
+		local proj = dir - normal * dir:Dot(normal)
+		if proj.Magnitude > 0.01 then dir3 = proj.Unit end
+	end
+	local forward = v:Dot(dir3)
+	local gear = currentGear()
+	local target = gearSpeed(gear)
+	if not speedRampActive or speedRampPart ~= part then
+		speedRampCurrent = forward; speedRampPart = part; speedRampActive = true
+		speedRampStart = forward; speedRampT = 0; speedRampTarget = target
+	end
+	if speedRampTarget ~= target then
+		speedRampStart = speedRampCurrent; speedRampT = 0; speedRampTarget = target
+	end
+	dt = math.min(dt or (1/60), 0.1)
+	local ramp = math.max(0.5, CONFIG.speedRampTime or 7)
+	if speedRampCurrent < target then
+		speedRampT = math.min(1, speedRampT + dt / ramp)
+		local k = speedRampT * speedRampT * (3 - 2 * speedRampT)
+		local eased = speedRampStart + (target - speedRampStart) * k
+		speedRampCurrent = math.min(target, math.max(speedRampCurrent, eased))
+	else
+		speedRampCurrent = math.max(target, speedRampCurrent - (CONFIG.speedBrake or 120) * dt)
+	end
+	local newSpeed = speedRampCurrent
+	local yVel = dir3.Y * newSpeed
+	if math.abs(dir3.Y) < 0.02 then yVel = v.Y end
+	part.AssemblyLinearVelocity = Vector3.new(dir3.X * newSpeed, yVel, dir3.Z * newSpeed)
+end
+
+connect(RunService.Heartbeat, function(dt)
+	if speedOn then pcall(applySpeed, dt)
+	else speedRampActive = false; speedRampPart = nil end
+	pcall(syncGuard)
+	pcall(antiFallStep)
+end)
+
+local function doJump()
+	local seat, part = getRide()
+	if not part or not part.Parent then return end
+	local v = part.AssemblyLinearVelocity
+	part.AssemblyLinearVelocity = Vector3.new(v.X, CONFIG.jumpPower, v.Z)
+	local bv = Instance.new("BodyVelocity")
+	bv.MaxForce = Vector3.new(0, 1e6, 0)
+	bv.Velocity = Vector3.new(v.X, CONFIG.jumpPower, v.Z)
+	bv.Parent = part
+	task.delay(CONFIG.jumpHold, function() if bv then bv:Destroy() end end)
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then pcall(function() hum.Jump = true end) end
+end
+
+local spinAutoRotateWas, spinStartClock, spinStartY = nil, 0, 0
+local spinBaseCF, spinPivot, spinAngle = nil, nil, 0
+
+local function spinStop()
+	spinning = false; spinBaseCF = nil; spinPivot = nil
+	local seat, part = getRide()
+	if part and part.Parent then pcall(function() part.AssemblyAngularVelocity = Vector3.new(0,0,0) end) end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum and spinAutoRotateWas ~= nil then pcall(function() hum.AutoRotate = spinAutoRotateWas end) end
+	spinAutoRotateWas = nil
+	if updateUI then pcall(updateUI) end
+end
+
+local function spinStart()
+	local seat, part = getRide()
+	if not part or not part.Parent then return false end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		spinAutoRotateWas = hum.AutoRotate
+		pcall(function() hum.AutoRotate = false end)
+	end
+	local cf0 = part.CFrame
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local pivotPos = hrp and hrp.Position or cf0.Position
+	spinning = true; spinStartClock = os.clock(); spinStartY = part.Position.Y
+	spinBaseCF = cf0; spinPivot = Vector3.new(pivotPos.X, 0, pivotPos.Z); spinAngle = 0
+	return true
+end
+
+connect(RunService.Heartbeat, function(dt)
+	if not spinning or not spinBaseCF then return end
+	local seat, part = getRide()
+	if not part or not part.Parent then return end
+	local elapsed = os.clock() - spinStartClock
+	if elapsed > 0.25 then
+		local vy = 0
+		pcall(function() vy = part.AssemblyLinearVelocity.Y end)
+		if (vy <= 0 and part.Position.Y <= spinStartY + 0.4) or elapsed > 8 then
+			spinStop(); return
+		end
+	end
+	spinAngle = spinAngle + CONFIG.spinSpeed * math.min(dt, 0.05)
+	pcall(function()
+		local v = part.AssemblyLinearVelocity
+		part.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+		part.AssemblyLinearVelocity = Vector3.new(0, v.Y, 0)
+		local rotated = CFrame.new(spinPivot) * CFrame.Angles(0, spinAngle, 0) * CFrame.new(-spinPivot) * spinBaseCF
+		local dy = part.Position.Y - spinBaseCF.Position.Y
+		part.CFrame = rotated + Vector3.new(0, dy, 0)
+	end)
+end)
+
+local function flyInputVector()
+	local cam = workspace.CurrentCamera
+	if not cam then return Vector3.new(0,0,0) end
+	local typing = false
+	pcall(function() typing = UserInputService:GetFocusedTextBox() ~= nil end)
+	local move = Vector3.new(0,0,0)
+	local horizontalKey = false
+	if not typing then
+		local look = cam.CFrame.LookVector
+		local right = cam.CFrame.RightVector
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + look; horizontalKey = true end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - look; horizontalKey = true end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + right; horizontalKey = true end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - right; horizontalKey = true end
+		if UserInputService:IsKeyDown(Enum.KeyCode.Space) or flyUp then move = move + Vector3.new(0,1,0) end
+		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or flyDown then move = move - Vector3.new(0,1,0) end
+	elseif flyUp or flyDown then
+		if flyUp then move = move + Vector3.new(0,1,0) end
+		if flyDown then move = move - Vector3.new(0,1,0) end
+	end
+	if not horizontalKey then
+		local char = LocalPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum.MoveDirection.Magnitude > 0.05 then move = move + hum.MoveDirection end
+	end
+	return move, horizontalKey
+end
+
+local flyObjs = nil
+
+local function flyRelease()
+	if flyObjs then
+		local o = flyObjs
+		flyObjs = nil
+		pcall(function() if o.bv then o.bv:Destroy() end end)
+		pcall(function() if o.bg then o.bg:Destroy() end end)
+	end
+end
+
+local function flyEnsure(part)
+	if flyObjs and flyObjs.part == part and flyObjs.bv and flyObjs.bv.Parent == part then return flyObjs end
+	flyRelease()
+	local bv = Instance.new("BodyVelocity")
+	bv.Name = "BebrackaFlyVel"; bv.MaxForce = Vector3.new(1e9,1e9,1e9)
+	bv.P = 1e5; bv.Velocity = Vector3.new(0,0,0); bv.Parent = part
+	local cf = part.CFrame
+	local bg = Instance.new("BodyGyro")
+	bg.Name = "BebrackaFlyGyro"; bg.MaxTorque = Vector3.new(1e9,1e9,1e9)
+	bg.P = 1e4; bg.D = 600; bg.CFrame = cf - cf.Position; bg.Parent = part
+	flyObjs = { part = part, bv = bv, bg = bg }
+	return flyObjs
+end
+
+connect(RunService.Heartbeat, function(dt)
+	if not flyOn or spinning then flyRelease(); return end
+	local seat, part = getRide()
+	if not part or not part.Parent then flyRelease(); return end
+	local objs = flyEnsure(part)
+	local move = flyInputVector()
+	local vel = Vector3.new(0,0,0)
+	if move.Magnitude > 0.01 then vel = move.Unit * CONFIG.flySpeed end
+	pcall(function()
+		objs.bv.Velocity = vel
+		local cf = part.CFrame
+		local rot = cf - cf.Position
+		local targetRot = rot
+		local flatMove = Vector3.new(move.X, 0, move.Z)
+		local cam = workspace.CurrentCamera
+		if cam and flatMove.Magnitude > 0.01 then
+			local camLook = cam.CFrame.LookVector
+			local camFlat = Vector3.new(camLook.X, 0, camLook.Z)
+			local ref = (seat or part).CFrame.LookVector
+			local refFlat = Vector3.new(ref.X, 0, ref.Z)
+			if camFlat.Magnitude > 0.01 and refFlat.Magnitude > 0.01 then
+				local target = math.atan2(-camFlat.X, -camFlat.Z)
+				local current = math.atan2(-refFlat.X, -refFlat.Z)
+				local diff = (target - current + math.pi) % (2*math.pi) - math.pi
+				targetRot = CFrame.Angles(0, diff, 0) * rot
+			end
+		end
+		objs.bg.CFrame = targetRot
+	end)
+end)
+local visColor = Color3.fromRGB(255, 95, 160)
+local visTransp = 0
+local visRainbowSpeed = 6
+local visState = {
+	rainbow = false, neon = false, chrome = false, glass = false,
+	trail = false, light = false, sparkles = false, fire = false,
+	rtx = false, clock = false, blur = false,
+	esp = false, names = false,
+}
+local visNum = { clockTime = 12 }
+local visCache = nil
+
+local function visRestoreAll()
+	local cache = visCache
+	visCache = nil
+	if not cache then return end
+	for _, info in ipairs(cache.parts) do
+		local p = info.part
+		if p and p.Parent then
+			pcall(function()
+				p.Color = info.color; p.Material = info.material
+				p.Transparency = info.transp; p.Reflectance = info.refl or 0
+			end)
+		end
+	end
+	for key, obj in pairs(cache.objs) do
+		pcall(function() obj:Destroy() end)
+		cache.objs[key] = nil
+	end
+end
+
+local function visBuild(model, root)
+	local cache = { model = model, root = root, parts = {}, objs = {} }
+	local char = LocalPlayer.Character
+	local list = model and model:GetDescendants() or { root }
+	for i = 1, math.min(#list, 1500) do
+		local d = list[i]
+		if d:IsA("BasePart") and not (char and d:IsDescendantOf(char)) and d.Transparency < 0.95 then
+			table.insert(cache.parts, { part = d, color = d.Color, material = d.Material, transp = d.Transparency, refl = d.Reflectance })
+		end
+	end
+	return cache
+end
+
+local function visRainbowSequence(hue)
+	local keys = {}
+	for i = 0, 6 do
+		local tpos = i / 6
+		table.insert(keys, ColorSequenceKeypoint.new(tpos, Color3.fromHSV((hue + tpos) % 1, 0.85, 1)))
+	end
+	return ColorSequence.new(keys)
+end
+
+connect(RunService.Heartbeat, function()
+	local any = visState.rainbow or visState.neon or visState.chrome or visState.glass or visState.trail
+		or visState.light or visState.sparkles or visState.fire or visTransp > 0
+	if not any then if visCache then visRestoreAll() end; return end
+	local seat, part = getRide()
+	local char = LocalPlayer.Character
+	if not part or not part.Parent or (char and part:IsDescendantOf(char)) then
+		if visCache then visRestoreAll() end
+		return
+	end
+	local model = (seat or part):FindFirstAncestorOfClass("Model")
+	if not visCache or visCache.root ~= part or visCache.model ~= model then
+		visRestoreAll()
+		visCache = visBuild(model, part)
+	end
+	local cache = visCache
+	local hue = (os.clock() * visRainbowSpeed / 10) % 1
+	local baseColor = visState.rainbow and Color3.fromHSV(hue, 0.85, 1) or visColor
+	local chromeColor = Color3.fromRGB(215,218,228):Lerp(visColor, 0.25)
+	for i, info in ipairs(cache.parts) do
+		local p = info.part
+		if p.Parent then
+			pcall(function()
+				if visState.rainbow then p.Color = Color3.fromHSV((hue + i*0.012)%1, 0.85, 1)
+				elseif visState.neon then p.Color = visColor
+				elseif visState.chrome then p.Color = chromeColor
+				elseif p.Color ~= info.color then p.Color = info.color end
+				local mat, refl = info.material, info.refl or 0
+				if visState.neon then mat = Enum.Material.Neon
+				elseif visState.chrome then mat, refl = Enum.Material.Metal, 0.6
+				elseif visState.glass then mat, refl = Enum.Material.Glass, 0.2 end
+				if p.Material ~= mat then p.Material = mat end
+				if p.Reflectance ~= refl then p.Reflectance = refl end
+				local ghost = visTransp / 100
+				if visState.glass and not (visState.neon or visState.chrome) then ghost = math.max(ghost, 0.4) end
+				local tr = info.transp + (1 - info.transp) * ghost
+				if p.Transparency ~= tr then p.Transparency = tr end
+			end)
+		end
+	end
+	local function ensureObj(key, make)
+		local o = cache.objs[key]
+		if o and o.Parent then return o end
+		o = make(); cache.objs[key] = o; return o
+	end
+	local function dropObj(key)
+		local o = cache.objs[key]
+		if o then pcall(function() o:Destroy() end); cache.objs[key] = nil end
+	end
+	if visState.rainbow or visState.neon then
+		local hl = ensureObj("highlight", function()
+			local h = Instance.new("Highlight")
+			h.Name = "BebrackaGlow"; h.FillTransparency = 0.85
+			h.OutlineTransparency = 0; h.Adornee = model or part; h.Parent = part
+			return h
+		end)
+		hl.FillColor = baseColor; hl.OutlineColor = baseColor
+	else dropObj("highlight") end
+	if visState.trail then
+		local a0 = ensureObj("a0", function()
+			local a = Instance.new("Attachment"); a.Name = "BebrackaA0"
+			a.Position = Vector3.new(0, 0.8, 0); a.Parent = part; return a
+		end)
+		local a1 = ensureObj("a1", function()
+			local a = Instance.new("Attachment"); a.Name = "BebrackaA1"
+			a.Position = Vector3.new(0, -0.8, 0); a.Parent = part; return a
+		end)
+		local tr = ensureObj("trail", function()
+			local x = Instance.new("Trail")
+			x.Name = "BebrackaTrail"; x.Attachment0 = a0; x.Attachment1 = a1
+			x.Lifetime = 0.9; x.MinLength = 0.05; x.FaceCamera = true; x.LightEmission = 1
+			x.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.1),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			x.Parent = part; return x
+		end)
+		if visState.rainbow then tr.Color = visRainbowSequence(hue)
+		else tr.Color = ColorSequence.new(visColor) end
+	else dropObj("trail"); dropObj("a0"); dropObj("a1") end
+	if visState.light then
+		local l = ensureObj("light", function()
+			local x = Instance.new("PointLight"); x.Name = "BebrackaLight"
+			x.Brightness = 4; x.Range = 20; x.Shadows = false; x.Parent = part; return x
+		end)
+		l.Color = baseColor
+	else dropObj("light") end
+	if visState.sparkles then
+		local sp = ensureObj("sparkles", function()
+			local x = Instance.new("Sparkles"); x.Name = "BebrackaSparkles"; x.Parent = part; return x
+		end)
+		sp.SparkleColor = baseColor
+	else dropObj("sparkles") end
+	if visState.fire then
+		local f = ensureObj("fire", function()
+			local x = Instance.new("Fire"); x.Name = "BebrackaFire"
+			x.Size = 6; x.Heat = 8; x.Parent = part; return x
+		end)
+		f.Color = baseColor
+		f.SecondaryColor = Color3.new(1,1,1):Lerp(baseColor, 0.5)
+	else dropObj("fire") end
+end)
+
+local VX = { restore = function() end }
+do
+	local Lighting = game:GetService("Lighting")
+	local function speedNow()
+		local ok, spd = pcall(function()
+			local seat, part = getRide()
+			if part and part.Parent then return part.AssemblyLinearVelocity.Magnitude end
+			return 0
+		end)
+		return ok and spd or 0
+	end
+
+	local rtxApplied, rtxSaved, rtxAddedFx, rtxSavedChildren = false, {}, {}, {}
+	local rtxVignetteGui, clockOrig, rtxParent = nil, nil, nil
+
+	local function enableRTX(guiParent)
+		if rtxApplied then return end
+		rtxApplied = true; visState.rtx = true; rtxParent = guiParent
+		local props = {
+			"Ambient", "Brightness", "ColorShift_Bottom", "ColorShift_Top",
+			"EnvironmentDiffuseScale", "EnvironmentSpecularScale", "GlobalShadows",
+			"OutdoorAmbient", "ShadowSoftness", "ClockTime", "GeographicLatitude",
+			"ExposureCompensation"
+		}
+		for _, prop in ipairs(props) do pcall(function() rtxSaved[prop] = Lighting[prop] end) end
+		rtxSavedChildren = {}
+		for _, child in ipairs(Lighting:GetChildren()) do
+			if child:IsA("PostEffect") or child:IsA("Sky") or child:IsA("Atmosphere") then
+				child.Parent = nil
+				table.insert(rtxSavedChildren, child)
+			end
+		end
+		local bloom = Instance.new("BloomEffect")
+		bloom.Intensity = 0.35; bloom.Size = 20; bloom.Threshold = 0.85
+		local cc = Instance.new("ColorCorrectionEffect")
+		cc.Brightness = 0.05; cc.Contrast = 0.25; cc.Saturation = 0.15
+		cc.TintColor = Color3.fromRGB(255, 245, 230)
+		local sunRays = Instance.new("SunRaysEffect")
+		sunRays.Intensity = 0.12; sunRays.Spread = 0.8
+		local sky = Instance.new("Sky")
+		sky.SkyboxBk = "http://www.roblox.com/asset/?id=151165214"
+		sky.SkyboxDn = "http://www.roblox.com/asset/?id=151165197"
+		sky.SkyboxFt = "http://www.roblox.com/asset/?id=151165224"
+		sky.SkyboxLf = "http://www.roblox.com/asset/?id=151165191"
+		sky.SkyboxRt = "http://www.roblox.com/asset/?id=151165206"
+		sky.SkyboxUp = "http://www.roblox.com/asset/?id=151165227"
+		sky.SunAngularSize = 11
+		local atm = Instance.new("Atmosphere")
+		atm.Density = 0.3; atm.Offset = 0.25
+		atm.Color = Color3.fromRGB(199, 175, 166); atm.Decay = Color3.fromRGB(44, 39, 33)
+		atm.Glare = 0.35; atm.Haze = 1.2
+		rtxAddedFx = { bloom, cc, sunRays, sky, atm }
+		for _, fx in ipairs(rtxAddedFx) do fx.Parent = Lighting end
+		pcall(function() Lighting.Technology = Enum.Technology.Future end)
+		Lighting.Ambient = Color3.fromRGB(70,70,70); Lighting.Brightness = 2
+		Lighting.ColorShift_Bottom = Color3.fromRGB(0,0,0); Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
+		Lighting.EnvironmentDiffuseScale = 1; Lighting.EnvironmentSpecularScale = 1
+		Lighting.GlobalShadows = true; Lighting.OutdoorAmbient = Color3.fromRGB(100,100,100)
+		Lighting.ShadowSoftness = 0.15; Lighting.ClockTime = 14
+		Lighting.GeographicLatitude = 45; Lighting.ExposureCompensation = 0.1
+		if rtxParent then
+			rtxVignetteGui = Instance.new("ScreenGui")
+			rtxVignetteGui.Name = "bebrackaVignette"
+			rtxVignetteGui.IgnoreGuiInset = true
+			rtxVignetteGui.ResetOnSpawn = false
+			rtxVignetteGui.Parent = rtxParent
+			local image = Instance.new("ImageLabel", rtxVignetteGui)
+			image.AnchorPoint = Vector2.new(0.5, 1)
+			image.Position = UDim2.new(0.5, 0, 1, 0)
+			image.Size = UDim2.new(1, 0, 1.05, 0)
+			image.BackgroundTransparency = 1
+			image.Image = "rbxassetid://4576475446"
+			image.ImageTransparency = 0.35; image.ZIndex = 10
+		end
+		if updateUI then pcall(updateUI) end
+	end
+
+	local function disableRTX()
+		if not rtxApplied then return end
+		rtxApplied = false; visState.rtx = false
+		for _, fx in ipairs(rtxAddedFx) do pcall(function() fx:Destroy() end) end
+		rtxAddedFx = {}
+		for _, child in ipairs(rtxSavedChildren) do pcall(function() child.Parent = Lighting end) end
+		rtxSavedChildren = {}
+		for prop, v in pairs(rtxSaved) do pcall(function() Lighting[prop] = v end) end
+		rtxSaved = {}
+		if rtxVignetteGui then pcall(function() rtxVignetteGui:Destroy() end); rtxVignetteGui = nil end
+		if updateUI then pcall(updateUI) end
+	end
+
+	VX.enableRTX = enableRTX
+	VX.disableRTX = disableRTX
+
+	connect(RunService.Heartbeat, function()
+		if visState.clock then
+			if clockOrig == nil then clockOrig = Lighting.ClockTime end
+			Lighting.ClockTime = visNum.clockTime
+		elseif clockOrig ~= nil then
+			Lighting.ClockTime = clockOrig; clockOrig = nil
+		end
+	end)
+
+	local blurFx = nil
+	connect(RunService.RenderStepped, function(dt)
+		local spd = visState.blur and speedNow() or 0
+		if visState.blur then
+			if not blurFx or not blurFx.Parent then
+				blurFx = Instance.new("BlurEffect")
+				blurFx.Name = "BebrackaBlur"; blurFx.Size = 0; blurFx.Parent = Lighting
+			end
+			local want = math.clamp((spd - 80) / 10, 0, 18)
+			blurFx.Size = blurFx.Size + (want - blurFx.Size) * math.min(1, dt * 5)
+		elseif blurFx then pcall(function() blurFx:Destroy() end); blurFx = nil end
+	end)
+
+	local espObjs = {}
+	local function espRemove(plr)
+		local e = espObjs[plr]
+		if not e then return end
+		if e.hl then pcall(function() e.hl:Destroy() end) end
+		if e.gui then pcall(function() e.gui:Destroy() end) end
+		espObjs[plr] = nil
+	end
+	local function espClear() for plr in pairs(espObjs) do espRemove(plr) end end
+	local espClock = 0
+	connect(RunService.Heartbeat, function(dt)
+		espClock = espClock + dt
+		if espClock < 0.2 then return end
+		espClock = 0
+		local wantHL, wantNames = visState.esp, visState.names
+		if not wantHL and not wantNames then
+			if next(espObjs) then espClear() end
+			return
+		end
+		local myChar = LocalPlayer.Character
+		local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+		local seen = {}
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				local hrp = char and char:FindFirstChild("HumanoidRootPart")
+				if char and hrp then
+					seen[plr] = true
+					local e = espObjs[plr]
+					if e and e.char ~= char then espRemove(plr); e = nil end
+					if not e then e = { char = char }; espObjs[plr] = e end
+					if wantHL then
+						if not e.hl or not e.hl.Parent then
+							local h = Instance.new("Highlight")
+							h.Name = "BebrackaESP"; h.FillTransparency = 0.75
+							h.OutlineTransparency = 0
+							h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+							h.Adornee = char; h.Parent = char
+							e.hl = h
+						end
+						e.hl.FillColor = visColor; e.hl.OutlineColor = visColor
+					elseif e.hl then pcall(function() e.hl:Destroy() end); e.hl = nil end
+					if wantNames then
+						if not e.gui or not e.gui.Parent then
+							local g = Instance.new("BillboardGui")
+							g.Name = "BebrackaTag"; g.AlwaysOnTop = true
+							g.Size = UDim2.new(0, 140, 0, 34)
+							g.StudsOffset = Vector3.new(0, 3.2, 0)
+							g.Adornee = hrp; g.Parent = hrp
+							local l = Instance.new("TextLabel")
+							l.Size = UDim2.new(1,0,1,0); l.BackgroundTransparency = 1
+							l.Font = Enum.Font.GothamBold; l.TextSize = 13
+							l.TextStrokeTransparency = 0.3; l.Parent = g
+							e.gui = g; e.label = l
+						end
+						local dist = myHRP and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
+						e.label.Text = plr.DisplayName .. "\n" .. dist .. " st"
+						e.label.TextColor3 = visColor
+					elseif e.gui then
+						pcall(function() e.gui:Destroy() end)
+						e.gui = nil; e.label = nil
+					end
+				end
+			end
+		end
+		for plr in pairs(espObjs) do if not seen[plr] then espRemove(plr) end end
+	end)
+
+	VX.restore = function()
+		pcall(espClear)
+		pcall(disableRTX)
+		if clockOrig ~= nil then pcall(function() Lighting.ClockTime = clockOrig end); clockOrig = nil end
+		if blurFx then pcall(function() blurFx:Destroy() end); blurFx = nil end
+	end
+end
+
+local WHEELIE_ANGLE = 30
+local vim = nil
+pcall(function() vim = game:GetService("VirtualInputManager") end)
+
+local function rawKey(keyCode, down)
+	if vim then
+		local ok = pcall(function() vim:SendKeyEvent(down, keyCode, false, game) end)
+		if ok then return end
+	end
+	if down then
+		if type(keypress) == "function" then pcall(keypress, keyCode.Value) end
+	else
+		if type(keyrelease) == "function" then pcall(keyrelease, keyCode.Value) end
+	end
+end
+
+local ctrlHeld, sHeld, wHeld = false, false, false
+
+local function holdCtrl(d)
+	if ctrlHeld == d then return end; ctrlHeld = d; rawKey(Enum.KeyCode.LeftControl, d)
+end
+local function holdS(d)
+	if sHeld == d then return end; sHeld = d; rawKey(Enum.KeyCode.S, d)
+end
+local function holdW(d)
+	if wHeld == d then return end; wHeld = d; scriptWDown = d; rawKey(Enum.KeyCode.W, d)
+end
+local function releaseRideKeys() holdW(false); holdS(false); holdCtrl(false) end
+
+local function ridePitch()
+	local seat, part = getRide()
+	if not part or not part.Parent then return nil end
+	local ok, y = pcall(function() return part.CFrame.LookVector.Y end)
+	if not ok or not y then return nil end
+	return math.asin(math.clamp(y, -1, 1))
+end
+
+local function rideSpeed()
+	local seat, part = getRide()
+	if not part or not part.Parent then return 0 end
+	local ok, vel = pcall(function() return part.AssemblyLinearVelocity end)
+	if ok and vel then return vel.Magnitude end
+	ok, vel = pcall(function() return part.Velocity end)
+	if ok and vel then return vel.Magnitude end
+	return 0
+end
+
+local toggleAutoSpin, toggleWheelie
+
+local function toggleSpeed()
+	speedOn = not speedOn
+	speedRampActive = false; speedRampPart = nil
+	if updateUI then pcall(updateUI) end
+end
+
+local function toggleFly()
+	flyOn = not flyOn; flyUp = false; flyDown = false
+	if flyOn then
+		if autoWheelieOn and toggleWheelie then toggleWheelie() end
+		if autoSpinOn and toggleAutoSpin then toggleAutoSpin() end
+	end
+	if updateUI then pcall(updateUI) end
+end
+
+local function startSpin()
+	if spinning then return false end
+	if not spinStart() then return false end
+	pcall(doJump)
+	if updateUI then pcall(updateUI) end
+	return true
+end
+
+local function toggleSpin()
+	if spinning then pcall(spinStop); return end
+	startSpin()
+end
+
+local function autoSpinLoop()
+	if autoSpinRunning then return end
+	autoSpinRunning = true
+	while autoSpinOn do
+		if not gui or not gui.Parent then autoSpinRunning = false; return end
+		if autoWheelieOn then task.wait(0.5)
+		else
+			local cycleStart = os.clock()
+			if not spinning then
+				if not startSpin() then task.wait(0.5); cycleStart = nil end
+			end
+			while autoSpinOn and spinning do task.wait(0.05) end
+			if autoSpinOn and cycleStart then
+				local left = CONFIG.spinInterval - (os.clock() - cycleStart)
+				if left > 0 then task.wait(left) end
+			end
+		end
+	end
+	autoSpinRunning = false
+end
+
+local function autoWheelieLoop()
+	if autoWheelieRunning then return end
+	autoWheelieRunning = true
+	while autoWheelieOn do
+		if not gui or not gui.Parent then releaseRideKeys(); autoWheelieRunning = false; return end
+		local seat, part = getRide()
+		local rideOk = part and part.Parent and not part:IsDescendantOf(LocalPlayer.Character)
+		if rideOk and not autoSpinOn then break end
+		releaseRideKeys()
+		task.wait(0.3)
+	end
+	if autoWheelieOn then
+		holdW(true)
+		local tStart = os.clock()
+		while autoWheelieOn and gui and gui.Parent and os.clock() - tStart < 3 do
+			local seat, part = getRide()
+			local rideOk = part and part.Parent and not part:IsDescendantOf(LocalPlayer.Character)
+			if not rideOk then break end
+			if rideSpeed() > 10 then break end
+			task.wait(0.1)
+		end
+		if not autoWheelieOn or not gui or not gui.Parent then releaseRideKeys(); autoWheelieRunning = false; return end
+		local sUp = nil
+		local seat, part = getRide()
+		local rideOk = part and part.Parent and not part:IsDescendantOf(LocalPlayer.Character)
+		if rideOk then
+			holdCtrl(true); holdS(true); task.wait(0.3)
+			if not autoWheelieOn or not gui or not gui.Parent then releaseRideKeys(); autoWheelieRunning = false; return end
+			local p0 = ridePitch()
+			holdS(false); task.wait(0.15)
+			if not autoWheelieOn or not gui or not gui.Parent then releaseRideKeys(); autoWheelieRunning = false; return end
+			local p1 = ridePitch()
+			if p0 and p1 then
+				if p1 > p0 + math.rad(3) then sUp = false
+				elseif p1 < p0 - math.rad(3) then sUp = true end
+			end
+			if sUp == nil then sUp = false end
+			if sUp == false then holdS(true) end
+		else releaseRideKeys() end
+		local target = math.rad(WHEELIE_ANGLE)
+		while autoWheelieOn do
+			if not gui or not gui.Parent then releaseRideKeys(); autoWheelieRunning = false; return end
+			local seat2, part2 = getRide()
+			local rideOk2 = part2 and part2.Parent and not part2:IsDescendantOf(LocalPlayer.Character)
+			if not rideOk2 or autoSpinOn then releaseRideKeys(); task.wait(0.3)
+			else
+				holdW(true); holdCtrl(true)
+				local pitch = ridePitch()
+				if pitch then
+					if sUp == true then holdS(pitch < target and (os.clock() % 0.9) < 0.4)
+					elseif sUp == false then holdS(pitch > target + math.rad(8))
+					else holdS(false) end
+				end
+				task.wait(0.05)
+			end
+		end
+	end
+	releaseRideKeys()
+	autoWheelieRunning = false
+end
+
+toggleAutoSpin = function()
+	autoSpinOn = not autoSpinOn
+	if autoSpinOn then
+		if autoWheelieOn then toggleWheelie() end
+		task.spawn(autoSpinLoop)
+	else if spinning then pcall(spinStop) end end
+	if updateUI then pcall(updateUI) end
+end
+
+toggleWheelie = function()
+	autoWheelieOn = not autoWheelieOn
+	if autoWheelieOn then
+		if autoSpinOn then toggleAutoSpin() end
+		task.spawn(autoWheelieLoop)
+	else releaseRideKeys() end
+	if updateUI then pcall(updateUI) end
+end
+
+-- ФОН: впиши свой айди сюда если нужна картинка
+local BG_ASSET_ID = ""
+local function loadBgImage()
+	if BG_ASSET_ID ~= "" then return "rbxassetid://" .. BG_ASSET_ID end
+	return nil
+end
+
+local initSounds, playSound
+do
+local SOUND_VOLUME = 0.55
+local sounds = {}
+local SOUND_DEFS = {
+	on = { { 1046.5, 0, 0.16, 0.5 }, { 1318.5, 0.07, 0.18, 0.5 }, { 1568.0, 0.14, 0.26, 0.45 } },
+	off = { { 1318.5, 0, 0.14, 0.5 }, { 987.8, 0.07, 0.16, 0.5 }, { 659.3, 0.14, 0.26, 0.45 } },
+	tab = { { 1318.5, 0, 0.10, 0.45 }, { 1975.5, 0, 0.06, 0.15 } },
+}
+local function le(n, b)
+	local o = {}
+	for i = 1, b do o[i] = string.char(n % 256); n = math.floor(n / 256) end
+	return table.concat(o)
+end
+local function makeWav(notes)
+	local sr = 22050
+	local total = 0
+	for _, nt in ipairs(notes) do total = math.max(total, nt[2] + nt[3]) end
+	total = total + 0.04
+	local count = math.floor(total * sr)
+	local data = {}
+	for i = 0, count - 1 do
+		local tm = i / sr
+		local v = 0
+		for _, nt in ipairs(notes) do
+			local x = tm - nt[2]
+			if x >= 0 and x < nt[3] then
+				local env = (1 - math.exp(-x * 400)) * math.exp(-x * (5 / nt[3]))
+				local fade = math.min(1, (nt[3] - x) / 0.02)
+				local w = math.sin(2 * math.pi * nt[1] * x) + 0.3 * math.sin(4 * math.pi * nt[1] * x) * math.exp(-x * 20)
+				v = v + w * env * fade * nt[4]
+			end
+		end
+		v = math.clamp(v, -1, 1)
+		local n = math.floor(v * 30000)
+		if n < 0 then n = n + 65536 end
+		data[#data + 1] = string.char(n % 256, math.floor(n / 256))
+	end
+	local pcm = table.concat(data)
+	return "RIFF" .. le(36 + #pcm, 4) .. "WAVE" .. "fmt " .. le(16, 4) .. le(1, 2) .. le(1, 2) .. le(sr, 4) .. le(sr * 2, 4) .. le(2, 2) .. le(16, 2) .. "data" .. le(#pcm, 4) .. pcm
+end
+local function soundFallback(snd, name)
+	snd.SoundId = "rbxasset://sounds/switch.wav"
+	snd.PlaybackSpeed = (name == "on" and 1.2) or (name == "off" and 0.8) or 1.5
+end
+function initSounds(parentObj)
+	local getAsset = nil
+	pcall(function() getAsset = getcustomasset or getsynasset end)
+	local canWrite = type(getAsset) == "function" and type(writefile) == "function"
+	for name, notes in pairs(SOUND_DEFS) do
+		local snd = Instance.new("Sound")
+		snd.Name = "Bebracka_" .. name
+		snd.Volume = SOUND_VOLUME
+		local ok = false
+		if canWrite then ok = pcall(function()
+			local file = "bebracka_" .. name .. ".wav"
+			writefile(file, makeWav(notes))
+			snd.SoundId = getAsset(file)
+		end) end
+		if not ok or snd.SoundId == "" then soundFallback(snd, name) end
+		snd.Parent = parentObj
+		sounds[name] = snd
+		if ok then
+			task.spawn(function()
+				local t0 = os.clock()
+				while snd.Parent and not snd.IsLoaded and os.clock() - t0 < 2.5 do task.wait(0.1) end
+				if snd.Parent and not snd.IsLoaded then soundFallback(snd, name) end
+			end)
+		end
+	end
+end
+function playSound(name)
+	local snd = sounds[name]
+	if snd and snd.Parent then pcall(function() snd.TimePosition = 0; snd:Play() end) end
+end
+end
+
+local parent
+pcall(function() if type(gethui) == "function" then parent = gethui() end end)
+if not parent then pcall(function() parent = game:GetService("CoreGui") end) end
+if not parent then parent = LocalPlayer:WaitForChild("PlayerGui") end
+for _, n in ipairs({ "KukirinGui", "BebrackaClientGui", "BebrackaWatermark", "bebrackaVignette" }) do
+	local old = parent:FindFirstChild(n)
+	if old then old:Destroy() end
+end
+
+local COL = {
+	bg = Color3.fromRGB(32,10,22), panel = Color3.fromRGB(62,22,42),
+	panel2 = Color3.fromRGB(92,36,64), stroke = Color3.fromRGB(255,120,165),
+	text = Color3.fromRGB(255,238,244), sub = Color3.fromRGB(226,168,190),
+	on = Color3.fromRGB(235,55,105), accent = Color3.fromRGB(255,95,145),
+	blue = Color3.fromRGB(214,62,122), orange = Color3.fromRGB(238,104,96),
+	pink = Color3.fromRGB(255,112,178), red = Color3.fromRGB(225,50,80),
+	neutral = Color3.fromRGB(96,38,68),
+}
+
+local WIN_W, WIN_H, HEADER_H, MIN_H = 380, 640, 124, 56
+local function new(class, props, parentObj)
+	local o = Instance.new(class)
+	for k, v in pairs(props) do o[k] = v end
+	if parentObj then o.Parent = parentObj end
+	return o
+end
+local function round(obj, r)
+	return new("UICorner", { CornerRadius = UDim.new(0, r or 8) }, obj)
+end
+
+gui = new("ScreenGui", {
+	Name = "BebrackaClientGui", ResetOnSpawn = false,
+	IgnoreGuiInset = true, DisplayOrder = 999,
+}, parent)
+
+initSounds(gui)
+
+local main = new("Frame", {
+	Name = "Main",
+	Size = UDim2.new(0, WIN_W, 0, WIN_H),
+	Position = UDim2.new(0, 24, 0.5, -WIN_H / 2),
+	BackgroundColor3 = Color3.new(1,1,1),
+	BorderSizePixel = 0, Active = true, ClipsDescendants = true,
+}, gui)
+round(main, 14)
+new("UIStroke", { Color = COL.stroke, Thickness = 1.5, Transparency = 0.25 }, main)
+new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(58,18,40), Color3.fromRGB(26,8,18)) }, main)
+
+local langItems = {}
+local function bindText(obj, getter)
+	table.insert(langItems, { obj = obj, get = getter })
+	obj.Text = getter()
+end
+
+local banner = new("Frame", {
+	Size = UDim2.new(1, 0, 0, HEADER_H),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true,
+}, main)
+round(banner, 14)
+
+local topShade = new("Frame", {
+	Size = UDim2.new(1, 0, 0, 60),
+	BackgroundColor3 = Color3.fromRGB(24,4,14), BorderSizePixel = 0,
+}, banner)
+round(topShade, 14)
+new("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 1)
+}) }, topShade)
+
+local header = new("Frame", { Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1 }, banner)
+
+local subtitle = new("TextLabel", {
+	Size = UDim2.new(1,-28,0,18), Position = UDim2.new(0,14,1,-26),
+	BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12,
+	TextColor3 = COL.sub, TextStrokeTransparency = 0.6,
+	TextStrokeColor3 = Color3.fromRGB(30,4,14), TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+bindText(subtitle, function() return t("subtitle") end)
+
+local title = new("TextLabel", {
+	Size = UDim2.new(0,190,0,56), Position = UDim2.new(0,14,0,0),
+	BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 17,
+	TextColor3 = COL.text, TextStrokeTransparency = 0.45,
+	TextStrokeColor3 = Color3.fromRGB(120,20,60), TextXAlignment = Enum.TextXAlignment.Left,
+}, header)
+bindText(title, function() return t("title") end)
+
+local closeBtn = new("TextButton", {
+	Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-38,0,8),
+	BackgroundColor3 = COL.red, Text = "×", TextSize = 20,
+	Font = Enum.Font.GothamBold, TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+}, header)
+round(closeBtn, 8)
+
+local minBtn = new("TextButton", {
+	Size = UDim2.new(0,28,0,28), Position = UDim2.new(1,-72,0,8),
+	BackgroundColor3 = Color3.fromRGB(30,8,20), BackgroundTransparency = 0.25,
+	Text = "–", TextSize = 18, Font = Enum.Font.GothamBold,
+	TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+}, header)
+round(minBtn, 8)
+
+local langHolder = new("Frame", {
+	Size = UDim2.new(0,84,0,28), Position = UDim2.new(1,-164,0,8),
+	BackgroundColor3 = Color3.fromRGB(30,8,20), BackgroundTransparency = 0.25, BorderSizePixel = 0,
+}, header)
+round(langHolder, 8)
+
+local langRU = new("TextButton", {
+	Size = UDim2.new(0,38,0,24), Position = UDim2.new(0,2,0,2),
+	Text = "RU", TextSize = 12, Font = Enum.Font.GothamBold,
+	TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+}, langHolder)
+round(langRU, 6)
+
+local langEN = new("TextButton", {
+	Size = UDim2.new(0,38,0,24), Position = UDim2.new(0,44,0,2),
+	Text = "EN", TextSize = 12, Font = Enum.Font.GothamBold,
+	TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+}, langHolder)
+round(langEN, 6)
+
+local tabBar = new("Frame", {
+	Size = UDim2.new(1,-16,0,34), Position = UDim2.new(0,8,0,HEADER_H+8),
+	BackgroundTransparency = 1,
+}, main)
+
+local tabMain = new("TextButton", { Size = UDim2.new(1/3,-4,1,0), Position = UDim2.new(0,0,0,0), TextSize = 13, Font = Enum.Font.GothamBold, TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0 }, tabBar)
+round(tabMain, 8)
+bindText(tabMain, function() return t("tabMain") end)
+
+local tabKeys = new("TextButton", { Size = UDim2.new(1/3,-4,1,0), Position = UDim2.new(2/3,4,0,0), TextSize = 13, Font = Enum.Font.GothamBold, TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0 }, tabBar)
+round(tabKeys, 8)
+bindText(tabKeys, function() return t("tabKeys") end)
+
+local tabVis = new("TextButton", { Size = UDim2.new(1/3,-4,1,0), Position = UDim2.new(1/3,2,0,0), TextSize = 13, Font = Enum.Font.GothamBold, TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0 }, tabBar)
+round(tabVis, 8)
+bindText(tabVis, function() return t("tabVis") end)
+
+local content = new("Frame", {
+	Size = UDim2.new(1,-16,1,-(HEADER_H+54)),
+	Position = UDim2.new(0,8,0,HEADER_H+50),
+	BackgroundTransparency = 1,
+}, main)
+
+local function makePage()
+	local page = new("ScrollingFrame", {
+		Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+		BorderSizePixel = 0, ScrollBarThickness = 3,
+		ScrollBarImageColor3 = COL.stroke,
+		CanvasSize = UDim2.new(0,0,0,0),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false,
+	}, content)
+	new("UIListLayout", { Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder }, page)
+	new("UIPadding", { PaddingTop = UDim.new(0,4), PaddingBottom = UDim.new(0,8), PaddingRight = UDim.new(0,6) }, page)
+	return page
+end
+
+local mainPage = makePage()
+local keysPage = makePage()
+local visPage = makePage()
+
+local currentTab = "main"
+local function setTab(name)
+	currentTab = name
+	mainPage.Visible = (name == "main")
+	keysPage.Visible = (name == "keys")
+	visPage.Visible = (name == "vis")
+	tabMain.BackgroundColor3 = (name == "main") and COL.accent or COL.panel2
+	tabKeys.BackgroundColor3 = (name == "keys") and COL.accent or COL.panel2
+	tabVis.BackgroundColor3 = (name == "vis") and COL.accent or COL.panel2
+end
+
+local order = 0
+local function nextOrder() order = order + 1; return order end
+
+local function makeSection(pageObj, key)
+	local lbl = new("TextLabel", {
+		Size = UDim2.new(1,0,0,22), BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = COL.sub,
+		TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = nextOrder(),
+	}, pageObj)
+	bindText(lbl, function() return t(key) end)
+	return lbl
+end
+
+local function makeButton(pageObj, onClick)
+	local btn = new("TextButton", {
+		Size = UDim2.new(1,0,0,44), BackgroundColor3 = COL.neutral,
+		Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.new(1,1,1),
+		BorderSizePixel = 0, AutoButtonColor = true, LayoutOrder = nextOrder(),
+	}, pageObj)
+	round(btn, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.5 }, btn)
+	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(255,255,255), Color3.fromRGB(185,185,185)) }, btn)
+	btn.MouseButton1Click:Connect(function() playSound("tab"); onClick() end)
+	return btn
+end
+
+local toggleRefreshers = {}
+local TOGGLE_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local PILL_OFF = Color3.fromRGB(30,8,20)
+local KNOB_OFF = Color3.fromRGB(220,170,195)
+
+local function makeToggle(pageObj, nameKey, getState, onClick)
+	local row = new("TextButton", {
+		Size = UDim2.new(1,0,0,52), BackgroundColor3 = COL.panel,
+		BackgroundTransparency = 0.3, Text = "", AutoButtonColor = false,
+		BorderSizePixel = 0, LayoutOrder = nextOrder(),
+	}, pageObj)
+	round(row, 14)
+	local rowStroke = new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.7 }, row)
+	local nm = new("TextLabel", {
+		Size = UDim2.new(1,-92,0,22), Position = UDim2.new(0,14,0,7),
+		BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 14,
+		TextColor3 = COL.text, TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+	local st = new("TextLabel", {
+		Size = UDim2.new(1,-92,0,16), Position = UDim2.new(0,14,0,28),
+		BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11,
+		TextColor3 = COL.sub, TextXAlignment = Enum.TextXAlignment.Left,
+	}, row)
+	local pill = new("Frame", {
+		Size = UDim2.new(0,56,0,30), AnchorPoint = Vector2.new(1,0.5),
+		Position = UDim2.new(1,-12,0.5,0), BackgroundColor3 = PILL_OFF, BorderSizePixel = 0,
+	}, row)
+	round(pill, 15)
+	local pillStroke = new("UIStroke", { Color = COL.accent, Thickness = 1.5, Transparency = 0.8 }, pill)
+	local knob = new("Frame", {
+		Size = UDim2.new(0,24,0,24), AnchorPoint = Vector2.new(0,0.5),
+		Position = UDim2.new(0,3,0.5,0), BackgroundColor3 = KNOB_OFF, BorderSizePixel = 0,
+	}, pill)
+	round(knob, 12)
+	row.MouseButton1Click:Connect(function() onClick(); playSound(getState() and "on" or "off") end)
+	local first = true
+	local function refresh()
+		local on = getState()
+		nm.Text = t(nameKey)
+		st.Text = on and t("stateOn") or t("stateOff")
+		st.TextColor3 = on and COL.accent or COL.sub
+		local info = first and TweenInfo.new(0) or TOGGLE_TWEEN
+		first = false
+		TweenService:Create(knob, info, {
+			Position = on and UDim2.new(1,-27,0.5,0) or UDim2.new(0,3,0.5,0),
+			BackgroundColor3 = on and Color3.new(1,1,1) or KNOB_OFF,
+		}):Play()
+		TweenService:Create(pill, info, { BackgroundColor3 = on and COL.on or PILL_OFF }):Play()
+		TweenService:Create(pillStroke, info, { Transparency = on and 0.1 or 0.8 }):Play()
+		TweenService:Create(rowStroke, info, { Transparency = on and 0.15 or 0.7 }):Play()
+	end
+	table.insert(toggleRefreshers, refresh)
+	return row
+end
+
+local function makeSlider(pageObj, titleKey, minValue, maxValue, initial, onChange)
+	local holder = new("Frame", {
+		Size = UDim2.new(1,0,0,52), BackgroundColor3 = COL.panel,
+		BackgroundTransparency = 0.38, BorderSizePixel = 0, LayoutOrder = nextOrder(),
+	}, pageObj)
+	round(holder, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.75 }, holder)
+	local label = new("TextLabel", {
+		Size = UDim2.new(1,-24,0,18), Position = UDim2.new(0,12,0,6),
+		BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 12,
+		TextColor3 = COL.text, TextXAlignment = Enum.TextXAlignment.Left,
+	}, holder)
+	local track = new("Frame", {
+		Size = UDim2.new(1,-24,0,8), Position = UDim2.new(0,12,0,34),
+		BackgroundColor3 = Color3.fromRGB(30,8,20), BorderSizePixel = 0,
+	}, holder)
+	round(track, 8)
+	local alpha0 = (initial - minValue) / (maxValue - minValue)
+	local fill = new("Frame", { Size = UDim2.new(alpha0,0,1,0), BackgroundColor3 = COL.accent, BorderSizePixel = 0 }, track)
+	round(fill, 8)
+	local knob = new("Frame", {
+		Size = UDim2.new(0,16,0,16), AnchorPoint = Vector2.new(0.5,0.5),
+		Position = UDim2.new(alpha0,0,0.5,0), BackgroundColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+	}, track)
+	round(knob, 8)
+	local currentValue = initial
+	local sliding = false
+	table.insert(langItems, { obj = label, get = function() return t(titleKey) .. ": " .. currentValue end })
+	label.Text = t(titleKey) .. ": " .. currentValue
+	local function setFromX(x)
+		local absX = track.AbsolutePosition.X
+		local width = track.AbsoluteSize.X
+		if width <= 0 then return end
+		local alpha = math.clamp((x - absX) / width, 0, 1)
+		local value = math.floor(minValue + (maxValue - minValue) * alpha + 0.5)
+		currentValue = value
+		local a = (value - minValue) / (maxValue - minValue)
+		fill.Size = UDim2.new(a,0,1,0)
+		knob.Position = UDim2.new(a,0,0.5,0)
+		label.Text = t(titleKey) .. ": " .. value
+		onChange(value)
+	end
+	local hit = new("TextButton", {
+		Size = UDim2.new(1,0,0,30), Position = UDim2.new(0,0,0,22),
+		BackgroundTransparency = 1, Text = "",
+	}, holder)
+	hit.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = true; setFromX(input.Position.X)
+		end
+	end)
+	connect(UserInputService.InputChanged, function(input)
+		if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			setFromX(input.Position.X)
+		end
+	end)
+	connect(UserInputService.InputEnded, function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			sliding = false
+		end
+	end)
+end
+
+makeSection(mainPage, "secMove")
+makeToggle(mainPage, "tgSpeed", function() return speedOn end, toggleSpeed)
+makeSlider(mainPage, "sliderSpeed", 50, 500, CONFIG.speed, function(v) CONFIG.speed = v end)
+makeSlider(mainPage, "sliderRamp", 1, 20, CONFIG.speedRampTime, function(v) CONFIG.speedRampTime = v end)
+makeToggle(mainPage, "tgAntiFall", function() return CONFIG.antiFall end, function()
+	CONFIG.antiFall = not CONFIG.antiFall
+	updateUI()
+end)
+
+makeSection(mainPage, "secGear")
+local gearRow = new("Frame", { Size = UDim2.new(1,0,0,54), BackgroundTransparency = 1, LayoutOrder = nextOrder() }, mainPage)
+new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,4), SortOrder = Enum.SortOrder.LayoutOrder }, gearRow)
+local GEAR_ORDER = { "eco", "sport", "race" }
+local gearButtons = {}
+for i, g in ipairs(GEAR_ORDER) do
+	local b = new("TextLabel", {
+		Size = UDim2.new(1/3,-3,1,0), BackgroundColor3 = COL.panel2,
+		BackgroundTransparency = 0.15, Font = Enum.Font.GothamBold, TextSize = 13,
+		TextColor3 = Color3.new(1,1,1), TextWrapped = true, BorderSizePixel = 0,
+		Active = false, LayoutOrder = i,
+	}, gearRow)
+	round(b, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.55 }, b)
+	gearButtons[g] = b
+end
+local function refreshGearButtons()
+	local effective = currentGear()
+	for _, g in ipairs(GEAR_ORDER) do
+		local b = gearButtons[g]
+		b.Text = string.upper(g) .. "\n" .. gearSpeed(g)
+		b.BackgroundColor3 = (g == effective) and COL.on or COL.panel2
+		b.TextTransparency = (g == effective) and 0 or 0.35
+	end
+end
+local speedReadout = new("TextLabel", {
+	Size = UDim2.new(1,0,0,32), BackgroundTransparency = 1,
+	Font = Enum.Font.Gotham, TextSize = 11, TextWrapped = true,
+	TextColor3 = COL.sub, TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = nextOrder(),
+}, mainPage)
+
+makeSection(mainPage, "secFly")
+makeToggle(mainPage, "tgFly", function() return flyOn end, toggleFly)
+makeSlider(mainPage, "sliderFly", 20, 600, CONFIG.flySpeed, function(v) CONFIG.flySpeed = v end)
+local flyRow = new("Frame", { Size = UDim2.new(1,0,0,40), BackgroundTransparency = 1, LayoutOrder = nextOrder() }, mainPage)
+local function makeHoldButton(posX, key, onState)
+	local b = new("TextButton", {
+		Size = UDim2.new(0.5,-4,1,0), Position = UDim2.new(posX, posX == 0 and 0 or 4, 0, 0),
+		BackgroundColor3 = COL.panel2, Font = Enum.Font.GothamBold, TextSize = 13,
+		TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0, AutoButtonColor = true,
+	}, flyRow)
+	round(b, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.65 }, b)
+	bindText(b, function() return t(key) end)
+	b.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then onState(true) end
+	end)
+	b.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then onState(false) end
+	end)
+	return b
+end
+makeHoldButton(0, "flyUp", function(v) flyUp = v end)
+makeHoldButton(0.5, "flyDown", function(v) flyDown = v end)
+connect(UserInputService.InputEnded, function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		flyUp = false; flyDown = false
+	end
+end)
+
+makeSection(mainPage, "secTricks")
+local jumpBtn = makeButton(mainPage, function() pcall(doJump) end)
+local spinBtn = makeButton(mainPage, toggleSpin)
+makeToggle(mainPage, "tgAutoSpin", function() return autoSpinOn end, function() toggleAutoSpin() end)
+makeToggle(mainPage, "tgWheelie", function() return autoWheelieOn end, function() toggleWheelie() end)
+
+makeSection(mainPage, "secSettings")
+makeSlider(mainPage, "sliderJump", 10, 150, CONFIG.jumpPower, function(v) CONFIG.jumpPower = v end)
+makeSlider(mainPage, "sliderSpin", 5, 120, CONFIG.spinSpeed, function(v) CONFIG.spinSpeed = v end)
+local hint = new("TextLabel", {
+	Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11,
+	TextColor3 = COL.sub, TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, LayoutOrder = nextOrder(),
+}, mainPage)
+bindText(hint, function() return t("hint") end)
+
+order = 0
+local keysTip = new("TextLabel", {
+	Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 12,
+	TextColor3 = COL.sub, TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, LayoutOrder = nextOrder(),
+}, keysPage)
+bindText(keysTip, function() return t("keysTip") end)
+
+local keyRows = {
+	{ action = "jump", titleKey = "keyJump" },
+	{ action = "spin", titleKey = "keySpin" },
+	{ action = "autospin", titleKey = "keyAutoSpin" },
+	{ action = "wheelie", titleKey = "keyWheelie" },
+	{ action = "speed", titleKey = "keySpeed" },
+	{ action = "fly", titleKey = "keyFly" },
+}
+local binds = { jump = nil, spin = nil, autospin = nil, wheelie = nil, speed = nil, fly = nil }
+local bindButtons = {}
+local listening = nil
+local function refreshBindButtons()
+	for action, b in pairs(bindButtons) do
+		if listening == action then b.Text = t("pressKey"); b.BackgroundColor3 = COL.orange
+		else
+			local key = binds[action]
+			b.Text = key and key.Name or "—"
+			b.BackgroundColor3 = key and COL.blue or COL.panel2
+		end
+	end
+end
+for _, row in ipairs(keyRows) do
+	local holder = new("Frame", {
+		Size = UDim2.new(1,0,0,42), BackgroundColor3 = COL.panel,
+		BackgroundTransparency = 0.38, BorderSizePixel = 0, LayoutOrder = nextOrder(),
+	}, keysPage)
+	round(holder, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.75 }, holder)
+	local lbl = new("TextLabel", {
+		Size = UDim2.new(0.5,-12,1,0), Position = UDim2.new(0,12,0,0),
+		BackgroundTransparency = 1, Font = Enum.Font.GothamMedium, TextSize = 13,
+		TextColor3 = COL.text, TextXAlignment = Enum.TextXAlignment.Left,
+	}, holder)
+	bindText(lbl, function() return t(row.titleKey) end)
+	local b = new("TextButton", {
+		Size = UDim2.new(0,130,0,28), AnchorPoint = Vector2.new(1,0.5),
+		Position = UDim2.new(1,-8,0.5,0), BackgroundColor3 = COL.panel2,
+		Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = Color3.new(1,1,1), BorderSizePixel = 0,
+	}, holder)
+	round(b, 8)
+	b.MouseButton1Click:Connect(function() playSound("tab"); listening = row.action; refreshBindButtons() end)
+	bindButtons[row.action] = b
+end
+
+order = 0
+local refreshSwatches
+do
+	local function addToggle(textKey, stateKey)
+		makeToggle(visPage, textKey, function() return visState[stateKey] end, function()
+			visState[stateKey] = not visState[stateKey]
+			updateUI()
+		end)
+	end
+
+	makeSection(visPage, "secColor")
+	local PALETTE = {
+		Color3.fromRGB(255,95,160), Color3.fromRGB(235,50,70), Color3.fromRGB(255,150,50),
+		Color3.fromRGB(255,225,70), Color3.fromRGB(70,230,120), Color3.fromRGB(60,220,255),
+		Color3.fromRGB(70,110,255), Color3.fromRGB(170,80,255), Color3.fromRGB(255,255,255),
+	}
+	local paletteRow = new("Frame", { Size = UDim2.new(1,0,0,40), BackgroundTransparency = 1, LayoutOrder = nextOrder() }, visPage)
+	new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,5), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center }, paletteRow)
+	local swatches = {}
+	refreshSwatches = function()
+		for _, sw in ipairs(swatches) do
+			sw.stroke.Transparency = (visColor == sw.color) and 0 or 1
+		end
+	end
+	for i, c in ipairs(PALETTE) do
+		local btn = new("TextButton", {
+			Size = UDim2.new(0,30,0,30), BackgroundColor3 = c, Text = "",
+			AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = i,
+		}, paletteRow)
+		round(btn, 15)
+		local st = new("UIStroke", { Color = Color3.new(1,1,1), Thickness = 2, Transparency = 1 }, btn)
+		table.insert(swatches, { stroke = st, color = c })
+		btn.MouseButton1Click:Connect(function() playSound("tab"); visColor = c; refreshSwatches() end)
+	end
+
+	makeSection(visPage, "secShader")
+	makeToggle(visPage, "tgRTX", function() return visState.rtx end, function()
+		if visState.rtx then VX.disableRTX() else VX.enableRTX(parent) end
+	end)
+	makeToggle(visPage, "tgClock", function() return visState.clock end, function()
+		visState.clock = not visState.clock
+		updateUI()
+	end)
+	makeSlider(visPage, "sliderClock", 0, 24, visNum.clockTime, function(v) visNum.clockTime = v end)
+	makeToggle(visPage, "tgBlur", function() return visState.blur end, function()
+		visState.blur = not visState.blur
+		updateUI()
+	end)
+
+	makeSection(visPage, "secVisual")
+	addToggle("tgRainbow", "rainbow")
+	addToggle("tgNeon", "neon")
+	addToggle("tgChrome", "chrome")
+	addToggle("tgGlass", "glass")
+	addToggle("tgTrail", "trail")
+	addToggle("tgLight", "light")
+	addToggle("tgSpark", "sparkles")
+	addToggle("tgFire", "fire")
+	makeSlider(visPage, "sliderRainbow", 1, 30, visRainbowSpeed, function(v) visRainbowSpeed = v end)
+	makeSlider(visPage, "sliderGhost", 0, 90, visTransp, function(v) visTransp = v end)
+
+	makeSection(visPage, "secPlayers")
+	addToggle("tgEsp", "esp")
+	addToggle("tgNames", "names")
+
+	local visHint = new("TextLabel", {
+		Size = UDim2.new(1,0,0,0), AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1, Font = Enum.Font.Gotham, TextSize = 11,
+		TextColor3 = COL.sub, TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, LayoutOrder = nextOrder(),
+	}, visPage)
+	bindText(visHint, function() return t("visHint") end)
+end
+
+updateUI = function()
+	if not gui or not gui.Parent then return end
+	for _, item in ipairs(langItems) do item.obj.Text = item.get() end
+	for _, refresh in ipairs(toggleRefreshers) do refresh() end
+	jumpBtn.Text = t("jump")
+	jumpBtn.BackgroundColor3 = COL.blue
+	if spinning then spinBtn.Text = t("spinActive"); spinBtn.BackgroundColor3 = COL.on
+	else spinBtn.Text = t("spin"); spinBtn.BackgroundColor3 = COL.pink end
+	langRU.BackgroundColor3 = (currentLang == "ru") and COL.accent or COL.panel2
+	langEN.BackgroundColor3 = (currentLang == "en") and COL.accent or COL.panel2
+	refreshBindButtons(); refreshGearButtons(); refreshSwatches()
+end
+
+local function setLang(l) currentLang = l; updateUI() end
+langRU.MouseButton1Click:Connect(function() playSound("tab"); setLang("ru") end)
+langEN.MouseButton1Click:Connect(function() playSound("tab"); setLang("en") end)
+tabMain.MouseButton1Click:Connect(function() playSound("tab"); setTab("main") end)
+tabKeys.MouseButton1Click:Connect(function() playSound("tab"); setTab("keys") end)
+tabVis.MouseButton1Click:Connect(function() playSound("tab"); setTab("vis") end)
+
+local minimized = false
+minBtn.MouseButton1Click:Connect(function()
+	playSound("tab")
+	minimized = not minimized
+	tabBar.Visible = not minimized
+	content.Visible = not minimized
+	main.Size = UDim2.new(0, WIN_W, 0, minimized and MIN_H or WIN_H)
+	minBtn.Text = minimized and "+" or "–"
+end)
+
+local dragging = false
+local dragStart, dragStartAbs
+local targetPos = main.Position
+banner.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		dragStartAbs = main.AbsolutePosition
+		targetPos = UDim2.fromOffset(dragStartAbs.X, dragStartAbs.Y)
+	end
+end)
+connect(UserInputService.InputChanged, function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		local vp = gui.AbsoluteSize
+		local x = math.clamp(dragStartAbs.X + delta.X, -WIN_W + 90, vp.X - 90)
+		local y = math.clamp(dragStartAbs.Y + delta.Y, 0, vp.Y - 40)
+		targetPos = UDim2.fromOffset(x, y)
+	end
+end)
+connect(UserInputService.InputEnded, function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+connect(RunService.RenderStepped, function(dt)
+	if not gui or not gui.Parent then return end
+	local alpha = 1 - math.exp(-dt * 16)
+	main.Position = main.Position:Lerp(targetPos, alpha)
+end)
+
+local readoutTimer = 0
+connect(RunService.Heartbeat, function(dt)
+	if not gui or not gui.Parent then return end
+	readoutTimer = readoutTimer + dt
+	if readoutTimer < 0.25 then return end
+	readoutTimer = 0
+	if currentTab == "main" and not minimized then
+		local g, src = currentGear()
+		local srcText = t("src" .. string.upper(string.sub(src,1,1)) .. string.sub(src,2))
+		speedReadout.Text = t("speedNow") .. ": " .. math.floor(rideSpeed() + 0.5)
+			.. "  •  " .. t("gearWord") .. ": " .. string.upper(g) .. " " .. gearSpeed(g)
+			.. " (" .. srcText .. ")"
+		refreshGearButtons()
+	end
+end)
+
+connect(UserInputService.InputBegan, function(input, gameProcessed)
+	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+	if listening and input.KeyCode == Enum.KeyCode.Escape then
+		listening = nil; refreshBindButtons(); return
+	end
+	if gameProcessed then return end
+	if listening then
+		local action = listening
+		listening = nil
+		if input.KeyCode == Enum.KeyCode.Backspace then binds[action] = nil
+		else binds[action] = input.KeyCode end
+		refreshBindButtons()
+		return
+	end
+	if autoWheelieOn and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.S) then return end
+	for action, key in pairs(binds) do
+		if key and key == input.KeyCode then
+			if action == "jump" then pcall(doJump)
+			elseif action == "spin" then toggleSpin()
+			elseif action == "autospin" then toggleAutoSpin(); playSound(autoSpinOn and "on" or "off")
+			elseif action == "wheelie" then toggleWheelie(); playSound(autoWheelieOn and "on" or "off")
+			elseif action == "speed" then toggleSpeed(); playSound(speedOn and "on" or "off")
+			elseif action == "fly" then toggleFly(); playSound(flyOn and "on" or "off") end
+			break
+		end
+	end
+end)
+
+local wmGui = nil
+do
+	local wmEnabled = true
+	wmGui = new("ScreenGui", {
+		Name = "BebrackaWatermark", ResetOnSpawn = false,
+		IgnoreGuiInset = true, DisplayOrder = 998, Enabled = wmEnabled,
+	}, parent)
+
+	local wmShadow = new("Frame", {
+		Size = UDim2.new(0,220,0,42), Position = UDim2.new(0,18,0,18),
+		BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.65, BorderSizePixel = 0,
+	}, wmGui)
+	round(wmShadow, 12)
+
+	local wmFrame = new("Frame", {
+		Size = UDim2.new(0,220,0,42), Position = UDim2.new(0,16,0,16),
+		BackgroundColor3 = Color3.fromRGB(22,6,14), BackgroundTransparency = 0.08,
+		BorderSizePixel = 0, Active = true,
+	}, wmGui)
+	round(wmFrame, 12)
+	new("UIStroke", { Color = COL.stroke, Thickness = 1, Transparency = 0.4 }, wmFrame)
+	new("UIGradient", { Rotation = 20, Color = ColorSequence.new(Color3.fromRGB(62,20,42), Color3.fromRGB(18,5,12)) }, wmFrame)
+
+	local avHolder = new("Frame", {
+		Size = UDim2.new(0,30,0,30), Position = UDim2.new(0,6,0.5,-15),
+		BackgroundColor3 = Color3.fromRGB(40,14,26), BorderSizePixel = 0,
+	}, wmFrame)
+	round(avHolder, 9)
+	new("UIStroke", { Color = COL.accent, Thickness = 1.2, Transparency = 0.15 }, avHolder)
+
+	local av = new("ImageLabel", {
+		Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1,
+		Image = "rbxthumb://type=AvatarHeadShot&id=" .. LocalPlayer.UserId .. "&w=150&h=150",
+		ScaleType = Enum.ScaleType.Crop,
+	}, avHolder)
+	round(av, 9)
+
+	local wmTitle = new("TextLabel", {
+		Size = UDim2.new(1,-50,0,14), Position = UDim2.new(0,42,0,4),
+		BackgroundTransparency = 1, Font = Enum.Font.GothamBlack, TextSize = 11,
+		TextColor3 = Color3.fromRGB(255,240,245), TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "BEBRACKA CLIENT",
+	}, wmFrame)
+	new("UIGradient", { Color = ColorSequence.new(Color3.fromRGB(255,240,245), COL.accent) }, wmTitle)
+
+	local statsRow = new("Frame", {
+		Size = UDim2.new(1,-50,0,16), Position = UDim2.new(0,42,0,20),
+		BackgroundTransparency = 1,
+	}, wmFrame)
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,5),
+		SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center,
+	}, statsRow)
+
+	local function mkStat(color)
+		return new("TextLabel", {
+			AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0,0,1,0),
+			BackgroundTransparency = 1, Font = Enum.Font.GothamBold, TextSize = 10,
+			TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Text = "—",
+		}, statsRow)
+	end
+	local function mkSep()
+		new("TextLabel", {
+			Size = UDim2.new(0,4,1,0), BackgroundTransparency = 1,
+			Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = COL.sub,
+			TextTransparency = 0.5, Text = "·",
+		}, statsRow)
+	end
+
+	local fpsL = mkStat(COL.accent); mkSep()
+	local pingL = mkStat(Color3.fromRGB(120,200,255)); mkSep()
+	local timeL = mkStat(Color3.fromRGB(255,210,130))
+
+	local wmDrag = false
+	local wmStartPos, wmFrameStart
+	wmFrame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			wmDrag = true; wmStartPos = input.Position; wmFrameStart = wmFrame.Position
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if not wmDrag then return end
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			local d = input.Position - wmStartPos
+			wmFrame.Position = UDim2.new(wmFrameStart.X.Scale, wmFrameStart.X.Offset + d.X, wmFrameStart.Y.Scale, wmFrameStart.Y.Offset + d.Y)
+			wmShadow.Position = wmFrame.Position + UDim2.fromOffset(2, 2)
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			wmDrag = false
+		end
+	end)
+	UserInputService.InputBegan:Connect(function(input, gp)
+		if gp then return end
+		if input.KeyCode == Enum.KeyCode.Insert then
+			wmEnabled = not wmEnabled
+			wmGui.Enabled = wmEnabled
+		end
+	end)
+
+	local fpsCounter = 0
+	local lastFpsTime = os.clock()
+	local lastUpdate = 0
+	local pingStat = nil
+	pcall(function() pingStat = Stats.Network.ServerStatsItem["Data Ping"] end)
+	RunService.Heartbeat:Connect(function()
+		fpsCounter = fpsCounter + 1
+		local now = os.clock()
+		if now - lastUpdate < 0.25 then return end
+		lastUpdate = now
+		if now - lastFpsTime >= 0.5 then
+			fpsL.Text = math.floor(fpsCounter / (now - lastFpsTime) + 0.5) .. " FPS"
+			fpsCounter = 0
+			lastFpsTime = now
+		end
+		if pingStat then
+			local ok, v = pcall(function() return pingStat:GetValue() end)
+			if ok and type(v) == "number" then pingL.Text = math.floor(v) .. " MS" end
+		else pingL.Text = "— MS" end
+		timeL.Text = os.date("%H:%M:%S")
+	end)
+end
+
+local function cleanup()
+	speedOn = false; flyOn = false
+	pcall(flyRelease); pcall(visRestoreAll); pcall(VX.restore)
+	CONFIG.antiFall = false; pcall(syncGuard)
+	autoSpinOn = false; autoWheelieOn = false
+	pcall(releaseRideKeys)
+	if spinning then pcall(spinStop) end
+	for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end
+	conns = {}
+	if gui then pcall(function() gui:Destroy() end) end
+	if wmGui then pcall(function() wmGui:Destroy() end); wmGui = nil end
+end
+
+_G.__bebrackaCleanup = cleanup
+ENV.__bebrackaCleanup = cleanup
+closeBtn.MouseButton1Click:Connect(cleanup)
+
+setTab("main")
+updateUI()
+
+print("[bebracka client v15] loaded: SPEED / FLY / JUMP / SPIN / AUTOSPIN / WHEELIE / BINDS / RU-EN / RTX(Nursultan) / WATERMARK")
